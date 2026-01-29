@@ -1,0 +1,7 @@
+.idea/
+.venv/
+videos/
+__pycache__/
+*.pyc
+.env
+test_results/*.json
