@@ -2,98 +2,86 @@
 
 from playwright.sync_api import Page
 
+from .base_page import BasePage
 
-class CheckoutPage:
+
+class CheckoutPage(BasePage):
     """Page object for the checkout flow (step one, step two, complete)."""
 
-    # Step One - Customer Info
-    FIRST_NAME_INPUT = "[data-test='firstName']"
-    LAST_NAME_INPUT = "[data-test='lastName']"
-    POSTAL_CODE_INPUT = "[data-test='postalCode']"
-    CANCEL_BUTTON = "[data-test='cancel']"
-    CONTINUE_BUTTON = "[data-test='continue']"
-    ERROR_MESSAGE = "[data-test='error']"
-
-    # Step Two - Overview
-    SUMMARY_INFO = "[data-test='payment-info-value']"
-    SUBTOTAL = "[data-test='subtotal-label']"
-    TAX = "[data-test='tax-label']"
-    TOTAL = "[data-test='total-label']"
-    FINISH_BUTTON = "[data-test='finish']"
-
-    # Complete
-    COMPLETE_HEADER = "[data-test='complete-header']"
-    COMPLETE_TEXT = "[data-test='complete-text']"
-    BACK_HOME_BUTTON = "[data-test='back-to-products']"
-
     def __init__(self, page: Page):
-        self.page = page
+        super().__init__(page)
+        # Step One - Customer Info
+        self.first_name_input = page.get_by_test_id("firstName")
+        self.last_name_input = page.get_by_test_id("lastName")
+        self.postal_code_input = page.get_by_test_id("postalCode")
+        self.cancel_button = page.get_by_test_id("cancel")
+        self.continue_button = page.get_by_test_id("continue")
+        self.error_message = page.get_by_test_id("error")
+
+        # Step Two - Overview
+        self.subtotal = page.get_by_test_id("subtotal-label")
+        self.tax = page.get_by_test_id("tax-label")
+        self.total = page.get_by_test_id("total-label")
+        self.finish_button = page.get_by_test_id("finish")
+
+        # Complete
+        self.complete_header = page.get_by_test_id("complete-header")
+        self.complete_text = page.get_by_test_id("complete-text")
+        self.back_home_button = page.get_by_test_id("back-to-products")
 
     def fill_customer_info(
         self,
         first_name: str,
         last_name: str,
-        postal_code: str
+        postal_code: str,
     ) -> None:
-        """
-        Fill in the customer information form.
-
-        Args:
-            first_name: Customer's first name
-            last_name: Customer's last name
-            postal_code: Customer's postal/zip code
-        """
-        self.page.fill(self.FIRST_NAME_INPUT, first_name)
-        self.page.fill(self.LAST_NAME_INPUT, last_name)
-        self.page.fill(self.POSTAL_CODE_INPUT, postal_code)
+        """Fill in the customer information form."""
+        self.first_name_input.fill(first_name)
+        self.last_name_input.fill(last_name)
+        self.postal_code_input.fill(postal_code)
 
     def continue_to_overview(self) -> None:
         """Continue to the order overview page."""
-        self.page.click(self.CONTINUE_BUTTON)
-        self.page.wait_for_load_state("networkidle")
+        self.continue_button.click()
 
     def get_error_message(self) -> str:
         """Get validation error message if present."""
-        error = self.page.locator(self.ERROR_MESSAGE)
-        if error.is_visible():
-            return error.text_content()
+        if self.error_message.is_visible():
+            return self.error_message.text_content()
         return ""
 
     def get_order_total(self) -> str:
         """Get the total order amount from overview page."""
-        return self.page.locator(self.TOTAL).text_content()
+        return self.total.text_content()
 
     def get_subtotal(self) -> str:
         """Get the subtotal amount."""
-        return self.page.locator(self.SUBTOTAL).text_content()
+        return self.subtotal.text_content()
 
     def get_tax(self) -> str:
         """Get the tax amount."""
-        return self.page.locator(self.TAX).text_content()
+        return self.tax.text_content()
 
     def finish_order(self) -> None:
         """Complete the order."""
-        self.page.click(self.FINISH_BUTTON)
-        self.page.wait_for_load_state("networkidle")
+        self.finish_button.click()
 
     def get_confirmation_header(self) -> str:
         """Get the order confirmation header text."""
-        return self.page.locator(self.COMPLETE_HEADER).text_content()
+        return self.complete_header.text_content()
 
     def get_confirmation_text(self) -> str:
         """Get the order confirmation body text."""
-        return self.page.locator(self.COMPLETE_TEXT).text_content()
+        return self.complete_text.text_content()
 
     def is_order_complete(self) -> bool:
         """Check if the order was completed successfully."""
-        return self.page.locator(self.COMPLETE_HEADER).is_visible()
+        return self.complete_header.is_visible()
 
     def back_to_products(self) -> None:
         """Return to the products page after order completion."""
-        self.page.click(self.BACK_HOME_BUTTON)
-        self.page.wait_for_load_state("networkidle")
+        self.back_home_button.click()
 
     def cancel(self) -> None:
         """Cancel the checkout process."""
-        self.page.click(self.CANCEL_BUTTON)
-        self.page.wait_for_load_state("networkidle")
+        self.cancel_button.click()

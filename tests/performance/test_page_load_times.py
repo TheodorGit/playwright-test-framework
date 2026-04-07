@@ -6,7 +6,7 @@ Measures and validates page load times against configured thresholds.
 
 import pytest
 from utils import measure_load_time
-from pages import LoginPage, ProductsPage
+from pages import LoginPage, ProductsPage, CartPage
 
 
 @pytest.mark.performance
@@ -20,7 +20,7 @@ class TestPageLoadTimes:
         result = measure_load_time(
             page,
             lambda: login_page.navigate(),
-            "Login page load"
+            "Login page load",
         )
 
         assert result["success"], f"Login page failed to load: {result.get('error')}"
@@ -32,15 +32,13 @@ class TestPageLoadTimes:
     def test_products_page_load_time(
         self,
         authenticated_page,
-        performance_thresholds
+        performance_thresholds,
     ):
         """Test that products page loads within threshold after login."""
-        # Products page should already be loaded after authentication
-        # Measure a refresh to get accurate load time
         result = measure_load_time(
             authenticated_page,
             lambda: authenticated_page.reload(),
-            "Products page load"
+            "Products page load",
         )
 
         assert result["success"]
@@ -49,7 +47,7 @@ class TestPageLoadTimes:
     def test_cart_navigation_time(
         self,
         authenticated_page,
-        performance_thresholds
+        performance_thresholds,
     ):
         """Test navigation time from products to cart."""
         products = ProductsPage(authenticated_page)
@@ -57,7 +55,7 @@ class TestPageLoadTimes:
         result = measure_load_time(
             authenticated_page,
             lambda: products.go_to_cart(),
-            "Cart navigation"
+            "Cart navigation",
         )
 
         assert result["success"]
@@ -66,11 +64,9 @@ class TestPageLoadTimes:
     def test_checkout_flow_performance(
         self,
         authenticated_page,
-        performance_thresholds
+        performance_thresholds,
     ):
         """Test checkout initiation performance."""
-        from pages import CartPage
-
         products = ProductsPage(authenticated_page)
         products.add_product_to_cart(0)
         products.go_to_cart()
@@ -80,7 +76,7 @@ class TestPageLoadTimes:
         result = measure_load_time(
             authenticated_page,
             lambda: cart.proceed_to_checkout(),
-            "Checkout initiation"
+            "Checkout initiation",
         )
 
         assert result["success"]

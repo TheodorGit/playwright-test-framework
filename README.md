@@ -4,10 +4,12 @@ A comprehensive test automation framework built with **Playwright** and **Pytest
 
 ## Features
 
-- **Page Object Model (POM)** - Clean separation of page interactions from test logic
+- **Page Object Model (POM)** - Clean separation of page interactions from test logic with BasePage inheritance
+- **Playwright Best Practices** - Locator-based API, `get_by_test_id()`, and `expect` auto-retrying assertions
 - **Pytest Fixtures** - Reusable test setup with session and function-scoped fixtures
 - **Custom Markers** - Organized test categorization (functional, performance, e2e, smoke)
 - **Performance Testing** - Load time measurements with configurable thresholds
+- **Failure Artifacts** - Automatic screenshot capture and tracing on test failure
 - **Structured Reporting** - JSON-based test results for CI/CD integration
 - **Environment Configuration** - Flexible setup via `.env` files
 
@@ -16,6 +18,7 @@ A comprehensive test automation framework built with **Playwright** and **Pytest
 ```
 portfolio_demo/
 ├── pages/                      # Page Object Model
+│   ├── base_page.py           # Base class for all page objects
 │   ├── login_page.py          # Login page interactions
 │   ├── products_page.py       # Product listing & cart operations
 │   ├── cart_page.py           # Shopping cart management
@@ -97,24 +100,37 @@ pytest tests/e2e/test_complete_purchase.py
 | `performance` | Load time measurements |
 | `e2e` | Complete user workflows |
 | `smoke` | Quick CI validation |
-| `slow` | Long-running tests |
 
 ## Key Design Patterns
 
 ### Page Object Model
-Each page has a dedicated class encapsulating its locators and interactions:
+Each page inherits from `BasePage` and uses Playwright's `get_by_test_id()` for locators:
 
 ```python
-class LoginPage:
-    USERNAME_INPUT = "[data-test='username']"
+class LoginPage(BasePage):
+    def __init__(self, page: Page):
+        super().__init__(page)
+        self.username_input = page.get_by_test_id("username")
+        self.login_button = page.get_by_test_id("login-button")
 
     def login(self, username: str, password: str) -> None:
-        self.page.fill(self.USERNAME_INPUT, username)
+        self.username_input.fill(username)
         # ...
 ```
 
+### Playwright Expect Assertions
+Auto-retrying assertions for reliable tests:
+
+```python
+from playwright.sync_api import expect
+
+expect(page).to_have_url(re.compile("inventory"))
+expect(products.cart_badge).to_have_text("1")
+expect(checkout.error_message).to_contain_text("First Name is required")
+```
+
 ### Fixture-Based Setup
-Reusable authentication and browser management:
+Reusable authentication and browser management with failure artifacts:
 
 ```python
 @pytest.fixture
@@ -137,7 +153,3 @@ reporter.save()  # Outputs to test_results/
 ## CI/CD Integration
 
 The framework produces JSON reports compatible with most CI systems. Test results are saved to `test_results/` with timestamps for historical tracking.
-
-## License
-
-MIT

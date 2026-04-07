@@ -5,7 +5,10 @@ Tests for user authentication including valid login,
 invalid credentials, and locked user scenarios.
 """
 
+import re
 import pytest
+from playwright.sync_api import expect
+
 from pages import LoginPage
 
 
@@ -21,11 +24,10 @@ class TestLogin:
 
         login_page.login(
             test_credentials["username"],
-            test_credentials["password"]
+            test_credentials["password"],
         )
 
-        assert login_page.is_logged_in(), "User should be logged in"
-        assert "inventory" in page.url
+        expect(page).to_have_url(re.compile("inventory"))
 
     def test_invalid_password(self, page, test_credentials):
         """Test login failure with incorrect password."""
@@ -34,9 +36,8 @@ class TestLogin:
 
         login_page.login(test_credentials["username"], "wrong_password")
 
-        assert not login_page.is_logged_in()
-        error = login_page.get_error_message()
-        assert "do not match" in error.lower()
+        expect(login_page.error_message).to_be_visible()
+        expect(login_page.error_message).to_contain_text("do not match")
 
     def test_invalid_username(self, page):
         """Test login failure with non-existent username."""
@@ -45,9 +46,8 @@ class TestLogin:
 
         login_page.login("invalid_user", "any_password")
 
-        assert not login_page.is_logged_in()
-        error = login_page.get_error_message()
-        assert "do not match" in error.lower()
+        expect(login_page.error_message).to_be_visible()
+        expect(login_page.error_message).to_contain_text("do not match")
 
     def test_locked_out_user(self, page):
         """Test login failure for locked out user."""
@@ -56,9 +56,8 @@ class TestLogin:
 
         login_page.login("locked_out_user", "secret_sauce")
 
-        assert not login_page.is_logged_in()
-        error = login_page.get_error_message()
-        assert "locked out" in error.lower()
+        expect(login_page.error_message).to_be_visible()
+        expect(login_page.error_message).to_contain_text("locked out")
 
     def test_empty_credentials(self, page):
         """Test login validation with empty fields."""
@@ -67,6 +66,5 @@ class TestLogin:
 
         login_page.login("", "")
 
-        assert not login_page.is_logged_in()
-        error = login_page.get_error_message()
-        assert "username is required" in error.lower()
+        expect(login_page.error_message).to_be_visible()
+        expect(login_page.error_message).to_contain_text("Username is required")

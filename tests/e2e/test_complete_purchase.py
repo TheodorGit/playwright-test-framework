@@ -4,7 +4,10 @@ End-to-end purchase workflow tests.
 Complete user journey tests from login through order completion.
 """
 
+import re
 import pytest
+from playwright.sync_api import expect
+
 from pages import LoginPage, ProductsPage, CartPage, CheckoutPage
 from utils import ResultsReporter
 
@@ -34,7 +37,7 @@ class TestCompletePurchase:
         login_page.login(test_credentials["username"], test_credentials["password"])
         reporter.add_step("Login", "passed", {"user": test_credentials["username"]})
 
-        assert login_page.is_logged_in(), "Login failed"
+        expect(page).to_have_url(re.compile("inventory"))
 
         # Step 2: Add product to cart
         products = ProductsPage(page)
@@ -42,14 +45,14 @@ class TestCompletePurchase:
         products.add_product_by_name(product_name)
         reporter.add_step("Add product to cart", "passed", {"product": product_name})
 
-        assert products.get_cart_count() == 1
+        expect(products.cart_badge).to_have_text("1")
 
         # Step 3: Navigate to cart
         products.go_to_cart()
         cart = CartPage(page)
         reporter.add_step("Navigate to cart", "passed")
 
-        assert cart.get_item_count() == 1
+        expect(cart.cart_items).to_have_count(1)
 
         # Step 4: Proceed to checkout
         cart.proceed_to_checkout()
@@ -69,7 +72,7 @@ class TestCompletePurchase:
         checkout.finish_order()
         reporter.add_step("Complete order", "passed")
 
-        assert checkout.is_order_complete(), "Order completion failed"
+        expect(checkout.complete_header).to_be_visible()
         confirmation = checkout.get_confirmation_header()
         reporter.add_step("Verify confirmation", "passed", {"message": confirmation})
 
@@ -97,22 +100,21 @@ class TestCompletePurchase:
         items_to_add = [
             "Sauce Labs Backpack",
             "Sauce Labs Bike Light",
-            "Sauce Labs Bolt T-Shirt"
+            "Sauce Labs Bolt T-Shirt",
         ]
 
         for item in items_to_add:
             products.add_product_by_name(item)
         reporter.add_step("Add products", "passed", {"count": len(items_to_add)})
 
-        assert products.get_cart_count() == 3
+        expect(products.cart_badge).to_have_text("3")
 
         # Go to cart and verify
         products.go_to_cart()
         cart = CartPage(page)
-        cart_items = cart.get_cart_items()
-        reporter.add_step("Verify cart", "passed", {"items": len(cart_items)})
+        reporter.add_step("Verify cart", "passed")
 
-        assert len(cart_items) == 3
+        expect(cart.cart_items).to_have_count(3)
 
         # Complete checkout
         cart.proceed_to_checkout()
@@ -126,7 +128,7 @@ class TestCompletePurchase:
 
         checkout.finish_order()
 
-        assert checkout.is_order_complete()
+        expect(checkout.complete_header).to_be_visible()
         reporter.add_step("Order complete", "passed")
         reporter.save()
 
@@ -147,14 +149,14 @@ class TestCompletePurchase:
         products.add_product_by_name("Sauce Labs Backpack")
         products.add_product_by_name("Sauce Labs Bike Light")
 
-        assert products.get_cart_count() == 2
+        expect(products.cart_badge).to_have_text("2")
 
         # Go to cart and remove one item
         products.go_to_cart()
         cart = CartPage(page)
         cart.remove_item("Sauce Labs Backpack")
 
-        assert cart.get_item_count() == 1
+        expect(cart.cart_items).to_have_count(1)
 
         # Complete checkout with remaining item
         cart.proceed_to_checkout()
@@ -163,4 +165,4 @@ class TestCompletePurchase:
         checkout.continue_to_overview()
         checkout.finish_order()
 
-        assert checkout.is_order_complete()
+        expect(checkout.complete_header).to_be_visible()

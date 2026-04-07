@@ -5,7 +5,10 @@ Tests for cart operations including viewing items,
 removing items, and cart persistence.
 """
 
+import re
 import pytest
+from playwright.sync_api import expect
+
 from pages import ProductsPage, CartPage
 
 
@@ -20,8 +23,8 @@ class TestCart:
 
         cart = CartPage(authenticated_page)
 
-        assert cart.get_page_title() == "Your Cart"
-        assert cart.get_item_count() == 0
+        expect(cart.title).to_have_text("Your Cart")
+        expect(cart.cart_items).to_have_count(0)
 
     def test_cart_shows_added_items(self, authenticated_page):
         """Test that cart displays items added from products page."""
@@ -31,9 +34,9 @@ class TestCart:
         products.go_to_cart()
 
         cart = CartPage(authenticated_page)
-        items = cart.get_cart_items()
 
-        assert len(items) == 2
+        expect(cart.cart_items).to_have_count(2)
+        items = cart.get_cart_items()
         item_names = [item["name"] for item in items]
         assert "Sauce Labs Backpack" in item_names
         assert "Sauce Labs Bike Light" in item_names
@@ -45,9 +48,9 @@ class TestCart:
         products.go_to_cart()
 
         cart = CartPage(authenticated_page)
-        items = cart.get_cart_items()
 
-        assert len(items) == 1
+        expect(cart.cart_items).to_have_count(1)
+        items = cart.get_cart_items()
         item = items[0]
         assert item["name"] == "Sauce Labs Backpack"
         assert item["price"] == "$29.99"
@@ -63,7 +66,7 @@ class TestCart:
         cart = CartPage(authenticated_page)
         cart.remove_item("Sauce Labs Backpack")
 
-        assert cart.get_item_count() == 1
+        expect(cart.cart_items).to_have_count(1)
         items = cart.get_cart_items()
         assert items[0]["name"] == "Sauce Labs Bike Light"
 
@@ -75,4 +78,4 @@ class TestCart:
         cart = CartPage(authenticated_page)
         cart.continue_shopping()
 
-        assert "inventory" in authenticated_page.url
+        expect(authenticated_page).to_have_url(re.compile("inventory"))

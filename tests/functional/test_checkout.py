@@ -5,7 +5,10 @@ Tests for the complete checkout process including
 customer information, order review, and completion.
 """
 
+import re
 import pytest
+from playwright.sync_api import expect
+
 from pages import ProductsPage, CartPage, CheckoutPage
 
 
@@ -25,8 +28,7 @@ class TestCheckout:
         checkout = CheckoutPage(authenticated_page)
         checkout.continue_to_overview()
 
-        error = checkout.get_error_message()
-        assert "first name is required" in error.lower()
+        expect(checkout.error_message).to_contain_text("First Name is required")
 
     def test_checkout_requires_last_name(self, authenticated_page):
         """Test that checkout validates last name."""
@@ -41,8 +43,7 @@ class TestCheckout:
         checkout.fill_customer_info("John", "", "12345")
         checkout.continue_to_overview()
 
-        error = checkout.get_error_message()
-        assert "last name is required" in error.lower()
+        expect(checkout.error_message).to_contain_text("Last Name is required")
 
     def test_checkout_requires_postal_code(self, authenticated_page):
         """Test that checkout validates postal code."""
@@ -57,8 +58,7 @@ class TestCheckout:
         checkout.fill_customer_info("John", "Doe", "")
         checkout.continue_to_overview()
 
-        error = checkout.get_error_message()
-        assert "postal code is required" in error.lower()
+        expect(checkout.error_message).to_contain_text("Postal Code is required")
 
     def test_checkout_overview_shows_total(self, authenticated_page):
         """Test that order overview displays total."""
@@ -73,8 +73,7 @@ class TestCheckout:
         checkout.fill_customer_info("John", "Doe", "12345")
         checkout.continue_to_overview()
 
-        total = checkout.get_order_total()
-        assert "Total:" in total
+        expect(checkout.total).to_contain_text("Total:")
 
     def test_cancel_checkout(self, authenticated_page):
         """Test canceling the checkout process."""
@@ -88,4 +87,4 @@ class TestCheckout:
         checkout = CheckoutPage(authenticated_page)
         checkout.cancel()
 
-        assert "cart" in authenticated_page.url
+        expect(authenticated_page).to_have_url(re.compile("cart"))
