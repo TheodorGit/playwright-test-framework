@@ -1,0 +1,91 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ui-tests:
+    name: UI tests (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox]
+    env:
+      BROWSER: ${{ matrix.browser }}
+      HEADLESS: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browser
+        run: playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Run UI suite (parallel)
+        run: >
+          pytest -m "not api" -n auto
+          --html=test_results/report.html --self-contained-html
+          --json-report --json-report-file=test_results/report.json
+
+      - name: Publish job summary
+        if: always()
+        run: python .github/scripts/ci_summary.py test_results/report.json "UI tests (${{ matrix.browser }})"
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report-ui-${{ matrix.browser }}
+          path: test_results/report.html
+
+      - name: Upload failure artifacts (screenshots + traces)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-artifacts-${{ matrix.browser }}
+          path: |
+            test_results/screenshots/
+            test_results/traces/
+          if-no-files-found: ignore
+
+  api-tests:
+    name: API tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run API suite
+        run: >
+          pytest -m api
+          --html=test_results/api-report.html --self-contained-html
+          --json-report --json-report-file=test_results/api-report.json
+
+      - name: Publish job summary
+        if: always()
+        run: python .github/scripts/ci_summary.py test_results/api-report.json "API tests"
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report-api
+          path: test_results/api-report.html
