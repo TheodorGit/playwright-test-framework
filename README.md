@@ -28,49 +28,45 @@ Built with Python, Playwright and Pytest against public demo targets by design, 
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TB
     subgraph TESTS["Test layers"]
-        direction TB
-        FUNC["Functional UI<br/>login · products · cart · checkout"]
-        E2E["End-to-end<br/>purchase journeys"]
-        DEF["Defect detection<br/>known bugs, xfail-pinned"]
-        API["API<br/>contracts · negatives · workflows"]
+        direction LR
+        FUNC["Functional UI"]
+        E2E["End-to-end"]
+        DEF["Defect scan"]
+        API["API tests"]
     end
 
-    subgraph FIX["Fixtures (conftest.py)"]
-        direction TB
-        BROWSER["Browser lifecycle<br/>Chromium / Firefox via env"]
-        AUTH["Auth state reuse<br/>log in once per session"]
-        FAIL["On failure<br/>screenshot + trace"]
+    subgraph FIX["Fixtures"]
+        direction LR
+        BROWSER["Browser lifecycle"]
+        AUTH["Auth reuse"]
+        FAIL["Failure artifacts"]
     end
 
-    subgraph POM["Page Object Model"]
-        direction TB
-        PAGES["LoginPage · ProductsPage<br/>CartPage · CheckoutPage"]
-    end
-
-    CONFIG["config.py<br/>typed settings from .env"]
+    CONFIG["config.py"]
+    POM["Page objects"]
     HTTPX["httpx client"]
     UI["SauceDemo UI"]
     RB["restful-booker API"]
 
     subgraph OUT["Reporting"]
-        direction TB
+        direction LR
         HTML["HTML report"]
         JSON["JSON report"]
     end
 
-    CI["GitHub Actions<br/>job summary + artifacts"]
+    CI["GitHub Actions"]
 
     FUNC --> FIX
     E2E --> FIX
     DEF --> FIX
     API --> HTTPX
+    CONFIG -.-> FIX
+    CONFIG -.-> HTTPX
     FIX --> POM
     POM --> UI
     HTTPX --> RB
-    CONFIG -.-> FIX
-    CONFIG -.-> HTTPX
     TESTS --> OUT
     OUT --> CI
 ```
