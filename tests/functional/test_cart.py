@@ -13,6 +13,7 @@ from pages import ProductsPage, CartPage
 
 
 @pytest.mark.functional
+@pytest.mark.regression
 class TestCart:
     """Test suite for shopping cart functionality."""
 

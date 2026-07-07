@@ -11,6 +11,7 @@ from pages import ProductsPage
 
 
 @pytest.mark.functional
+@pytest.mark.regression
 class TestProducts:
     """Test suite for products page functionality."""
 

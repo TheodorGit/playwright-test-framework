@@ -13,6 +13,7 @@ from pages import LoginPage
 
 
 @pytest.mark.functional
+@pytest.mark.regression
 @pytest.mark.smoke
 class TestLogin:
     """Test suite for login functionality."""

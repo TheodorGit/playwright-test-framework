@@ -12,9 +12,11 @@ from pages import LoginPage, ProductsPage, CartPage, CheckoutPage
 
 
 @pytest.mark.e2e
+@pytest.mark.regression
 class TestCompletePurchase:
     """End-to-end tests for complete purchase workflow."""
 
+    @pytest.mark.smoke
     def test_complete_single_item_purchase(self, page, test_credentials):
         """
         Test complete purchase flow for a single item.

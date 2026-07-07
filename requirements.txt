@@ -1,6 +1,11 @@
-# Test Framework
+# Test framework
 pytest>=9.0.0
 playwright>=1.55.0
+pytest-xdist>=3.6.0
+
+# Reporting
+pytest-html>=4.1.0
+pytest-json-report>=1.5.0
 
 # Utilities
 python-dotenv>=1.0.0

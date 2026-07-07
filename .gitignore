@@ -4,5 +4,6 @@ videos/
 __pycache__/
 *.pyc
 .env
-test_results/*.json
-test_results/screenshots/
+test_results/*
+!test_results/.gitkeep
+SCRIPT.md
