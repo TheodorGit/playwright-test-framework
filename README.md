@@ -27,48 +27,47 @@ Built with Python, Playwright and Pytest against public demo targets by design, 
 
 ## Architecture
 
+Two targets, one framework: the UI suites run against SauceDemo, and the API layer runs against restful-booker, because SauceDemo exposes no public API. Both pipelines share the same configuration and feed the same reports.
+
 ```mermaid
 flowchart TB
-    subgraph TESTS["Test layers"]
-        direction LR
-        FUNC["Functional UI"]
-        E2E["End-to-end"]
-        DEF["Defect scan"]
-        API["API tests"]
-    end
-
-    subgraph FIX["Fixtures"]
-        direction LR
-        BROWSER["Browser lifecycle"]
-        AUTH["Auth reuse"]
-        FAIL["Failure artifacts"]
-    end
-
     CONFIG["config.py"]
-    POM["Page objects"]
-    HTTPX["httpx client"]
-    UI["SauceDemo UI"]
-    RB["restful-booker API"]
 
-    subgraph OUT["Reporting"]
-        direction LR
+    subgraph UIP["UI pipeline"]
+        direction TB
+        FUNC["UI tests"]
+        E2E["E2E tests"]
+        DEF["Defect scan"]
+        POM["Page objects"]
+        SD["SauceDemo"]
+        FUNC --> POM
+        E2E --> POM
+        DEF --> POM
+        POM --> SD
+    end
+
+    subgraph APIP["API pipeline"]
+        direction TB
+        APIT["API tests"]
+        HTTPX["httpx client"]
+        RB["restful-booker"]
+        APIT --> HTTPX
+        HTTPX --> RB
+    end
+
+    subgraph OUTS["Outputs"]
+        direction TB
         HTML["HTML report"]
         JSON["JSON report"]
+        CI["GitHub Actions"]
+        HTML --> CI
+        JSON --> CI
     end
 
-    CI["GitHub Actions"]
-
-    FUNC --> FIX
-    E2E --> FIX
-    DEF --> FIX
-    API --> HTTPX
-    CONFIG -.-> FIX
-    CONFIG -.-> HTTPX
-    FIX --> POM
-    POM --> UI
-    HTTPX --> RB
-    TESTS --> OUT
-    OUT --> CI
+    CONFIG --> UIP
+    CONFIG --> APIP
+    UIP --> OUTS
+    APIP --> OUTS
 ```
 
 ## Quickstart
