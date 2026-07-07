@@ -96,7 +96,7 @@ BROWSER=firefox pytest -m smoke  # same tests, different engine
 Generate the reports CI produces:
 
 ```bash
-pytest -n auto --html=test_results/report.html --self-contained-html \
+pytest -n auto --html=test_results/report.html --self-contained-html --css=report.css \
        --json-report --json-report-file=test_results/report.json
 ```
 

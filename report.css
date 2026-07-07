@@ -1,0 +1,6 @@
+/* Extra styles injected into the pytest-html report via --css.
+   The log expander button duplicates the row's own click-to-expand
+   behaviour, so hide it. */
+.logexpander {
+  display: none;
+}

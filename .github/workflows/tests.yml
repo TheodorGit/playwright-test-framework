@@ -39,7 +39,7 @@ jobs:
       - name: Run UI suite (parallel)
         run: >
           pytest -m "not api and not defect" -n auto
-          --html=test_results/report.html --self-contained-html
+          --html=test_results/report.html --self-contained-html --css=report.css
           --json-report --json-report-file=test_results/report.json
 
       - name: Publish job summary
@@ -89,7 +89,7 @@ jobs:
       - name: Run defect suite
         run: >
           pytest -m defect
-          --html=test_results/defect-report.html --self-contained-html
+          --html=test_results/defect-report.html --self-contained-html --css=report.css
           --json-report --json-report-file=test_results/defect-report.json
 
       - name: Publish job summary
@@ -123,7 +123,7 @@ jobs:
       - name: Run API suite
         run: >
           pytest -m api
-          --html=test_results/api-report.html --self-contained-html
+          --html=test_results/api-report.html --self-contained-html --css=report.css
           --json-report --json-report-file=test_results/api-report.json
 
       - name: Publish job summary
