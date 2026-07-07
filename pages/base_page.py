@@ -1,4 +1,4 @@
-"""Base Page Object — shared logic for all page objects."""
+"""Base Page Object: shared logic for all page objects."""
 
 from playwright.sync_api import Page
 

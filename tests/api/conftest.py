@@ -6,7 +6,7 @@ import pytest
 from config import settings
 
 # Public, documented sandbox credentials for restful-booker's auth
-# endpoint — not secrets.
+# endpoint, not secrets.
 SANDBOX_ADMIN = {"username": "admin", "password": "password123"}
 
 

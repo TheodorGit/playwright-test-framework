@@ -2,7 +2,7 @@
 Booking API tests against restful-booker.
 
 Demonstrates contract (schema) validation, negative testing, and a
-chained CRUD workflow — five focused tests rather than exhaustive
+chained CRUD workflow: five focused tests rather than exhaustive
 endpoint coverage.
 """
 
