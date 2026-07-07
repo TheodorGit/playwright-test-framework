@@ -1,155 +1,123 @@
 # E-Commerce Test Automation Framework
 
-A comprehensive test automation framework built with **Playwright** and **Pytest**, demonstrating modern testing practices and design patterns.
+[![tests](https://github.com/TheodorGit/playwright-test-framework/actions/workflows/tests.yml/badge.svg)](https://github.com/TheodorGit/playwright-test-framework/actions/workflows/tests.yml)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Playwright](https://img.shields.io/badge/playwright-1.55%2B-2EAD33)
 
-## Features
+**Catches breaks in an e-commerce purchase funnel — login, cart, checkout, and backend API contracts — on two browsers with every push, with a full local regression run in about 15 seconds.**
 
-- **Page Object Model (POM)** - Clean separation of page interactions from test logic with BasePage inheritance
-- **Playwright Best Practices** - Locator-based API, `get_by_test_id()`, and `expect` auto-retrying assertions
-- **Pytest Fixtures** - Reusable test setup with session and function-scoped fixtures
-- **Custom Markers** - Organized test categorization (functional, performance, e2e, smoke)
-- **Performance Testing** - Load time measurements with configurable thresholds
-- **Failure Artifacts** - Automatic screenshot capture and tracing on test failure
-- **Structured Reporting** - JSON-based test results for CI/CD integration
-- **Environment Configuration** - Flexible setup via `.env` files
+Built with Python, Playwright and Pytest against public demo targets: the [SauceDemo](https://www.saucedemo.com/) storefront (UI) and the [restful-booker](https://restful-booker.herokuapp.com) API.
 
-## Project Structure
+![HTML test report — 32 tests, 0 failures, 13 seconds](docs/images/test-report.png)
 
+## What this demonstrates
+
+| Capability | What it means for your project |
+|---|---|
+| **Page Object Model** with stable `data-test` locators | UI changes are cheap to absorb: update one page class, every test that uses it keeps working |
+| **Auto-retrying `expect()` assertions — zero `sleep()`** | Tests fail when the product is broken, not when the network is slow |
+| **Log in once, reuse auth state** | Authenticated tests skip the login form via Playwright storage state — that's how 32 tests finish in ~13 s |
+| **Parallel execution** (pytest-xdist) | Regression feedback stays fast as the suite grows — one flag (`-n auto`) spreads tests across CPU cores |
+| **API test layer** (httpx + JSON Schema) | Backend contract breaks caught in seconds, without launching a browser |
+| **Failure artifacts: screenshot + Playwright trace** | Every red test ships with evidence — replay the exact failing moment step-by-step with `playwright show-trace` |
+| **HTML + JSON reporting** | A report stakeholders can read, plus machine-readable output that plugs into any CI/CD dashboard |
+| **GitHub Actions matrix** (Chromium + Firefox) | Cross-browser confidence on every push; reports attached to every run as downloadable artifacts |
+| **Typed settings module**, all config via `.env` | Point the same suite at dev / staging / prod by changing an env file — no code edits, no hardcoded URLs or credentials |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    subgraph TESTS["Test layers"]
+        direction TB
+        FUNC["Functional UI<br/>login · products · cart · checkout"]
+        E2E["End-to-end<br/>purchase journeys"]
+        API["API<br/>contracts · negatives · workflows"]
+    end
+
+    subgraph FIX["Fixtures — conftest.py"]
+        direction TB
+        BROWSER["Browser lifecycle<br/>Chromium / Firefox via env"]
+        AUTH["Auth state reuse<br/>log in once per session"]
+        FAIL["On failure<br/>screenshot + trace"]
+    end
+
+    subgraph POM["Page Object Model"]
+        direction TB
+        PAGES["LoginPage · ProductsPage<br/>CartPage · CheckoutPage"]
+    end
+
+    CONFIG["config.py<br/>typed settings from .env"]
+    HTTPX["httpx client"]
+    UI["SauceDemo UI"]
+    RB["restful-booker API"]
+
+    subgraph OUT["Reporting"]
+        direction TB
+        HTML["HTML report"]
+        JSON["JSON report"]
+    end
+
+    CI["GitHub Actions<br/>job summary + artifacts"]
+
+    FUNC --> FIX
+    E2E --> FIX
+    API --> HTTPX
+    FIX --> POM
+    POM --> UI
+    HTTPX --> RB
+    CONFIG -.-> FIX
+    CONFIG -.-> HTTPX
+    TESTS --> OUT
+    OUT --> CI
 ```
-portfolio_demo/
-├── pages/                      # Page Object Model
-│   ├── base_page.py           # Base class for all page objects
-│   ├── login_page.py          # Login page interactions
-│   ├── products_page.py       # Product listing & cart operations
-│   ├── cart_page.py           # Shopping cart management
-│   └── checkout_page.py       # Checkout flow handling
-│
-├── tests/
-│   ├── conftest.py            # Pytest fixtures & configuration
-│   ├── functional/            # UI functional tests
-│   │   ├── test_login.py      # Authentication tests
-│   │   ├── test_products.py   # Product page tests
-│   │   ├── test_cart.py       # Cart functionality tests
-│   │   └── test_checkout.py   # Checkout validation tests
-│   ├── performance/           # Performance tests
-│   │   └── test_page_load_times.py
-│   └── e2e/                   # End-to-end workflow tests
-│       └── test_complete_purchase.py
-│
-├── utils/                     # Utility modules
-│   ├── generators.py          # Test data generation
-│   ├── performance_utils.py   # Performance measurement helpers
-│   └── reporter.py            # JSON test reporting
-│
-├── test_results/              # Test execution reports
-├── pytest.ini                 # Pytest configuration
-├── requirements.txt           # Python dependencies
-└── .env.example              # Environment template
-```
 
-## Tech Stack
-
-- **Python 3.10+**
-- **Playwright** - Browser automation
-- **Pytest** - Test framework
-- **python-dotenv** - Environment management
-
-## Setup
-
-1. **Clone and install dependencies:**
-   ```bash
-   cd portfolio_demo
-   python -m venv .venv
-   .venv\Scripts\activate  # Windows
-   # source .venv/bin/activate  # Linux/Mac
-   pip install -r requirements.txt
-   playwright install chromium
-   ```
-
-2. **Configure environment:**
-   ```bash
-   copy .env.example .env
-   # Edit .env if needed (defaults work with SauceDemo)
-   ```
-
-## Running Tests
+## Quickstart
 
 ```bash
-# Run all tests
-pytest
-
-# Run by marker
-pytest -m functional    # UI functional tests
-pytest -m performance   # Performance tests
-pytest -m e2e          # End-to-end tests
-pytest -m smoke        # Quick smoke tests
-
-# Run specific test file
-pytest tests/functional/test_login.py
-
-# Run with visible browser
-# Set HEADLESS=false in .env, then:
-pytest tests/e2e/test_complete_purchase.py
+git clone https://github.com/TheodorGit/playwright-test-framework.git && cd playwright-test-framework
+pip install -r requirements.txt && playwright install chromium
+pytest -n auto
 ```
 
-## Test Categories
+Defaults work out of the box (headless Chromium against SauceDemo). To customise, copy `.env.example` to `.env` and edit — target URL, credentials, browser, headless mode are all environment-driven via `config.py`.
 
-| Marker | Description |
-|--------|-------------|
-| `functional` | UI functional tests |
-| `performance` | Load time measurements |
-| `e2e` | Complete user workflows |
-| `smoke` | Quick CI validation |
+## Running the suites
 
-## Key Design Patterns
-
-### Page Object Model
-Each page inherits from `BasePage` and uses Playwright's `get_by_test_id()` for locators:
-
-```python
-class LoginPage(BasePage):
-    def __init__(self, page: Page):
-        super().__init__(page)
-        self.username_input = page.get_by_test_id("username")
-        self.login_button = page.get_by_test_id("login-button")
-
-    def login(self, username: str, password: str) -> None:
-        self.username_input.fill(username)
-        # ...
+```bash
+pytest -m smoke                  # critical paths only — login + a complete purchase
+pytest -m regression -n auto     # full UI regression, parallelised
+pytest -m api                    # API layer only, no browser required
+pytest -m "not api" -n auto      # everything UI
+BROWSER=firefox pytest -m smoke  # same tests, different engine
 ```
 
-### Playwright Expect Assertions
-Auto-retrying assertions for reliable tests:
+Generate the reports CI produces:
 
-```python
-from playwright.sync_api import expect
-
-expect(page).to_have_url(re.compile("inventory"))
-expect(products.cart_badge).to_have_text("1")
-expect(checkout.error_message).to_contain_text("First Name is required")
+```bash
+pytest -n auto --html=test_results/report.html --self-contained-html \
+       --json-report --json-report-file=test_results/report.json
 ```
 
-### Fixture-Based Setup
-Reusable authentication and browser management with failure artifacts:
+When a test fails, `test_results/` also receives a full-page screenshot and a Playwright trace (`playwright show-trace test_results/traces/<test>.zip`).
 
-```python
-@pytest.fixture
-def authenticated_page(page):
-    login_page = LoginPage(page)
-    login_page.navigate()
-    login_page.login(username, password)
-    yield page
+## Project structure
+
+```
+├── .github/workflows/tests.yml   # CI: Chromium + Firefox matrix, API job, report artifacts
+├── config.py                     # Typed, frozen settings — the only place env vars are read
+├── pages/                        # Page Object Model (BasePage + 4 page classes)
+├── tests/
+│   ├── conftest.py               # Browser lifecycle, auth-state reuse, failure artifacts
+│   ├── functional/               # Login, products, cart, checkout
+│   ├── e2e/                      # Complete purchase journeys
+│   └── api/                      # Contract, negative and workflow tests (httpx + JSON Schema)
+└── pytest.ini                    # Markers: smoke, regression, functional, e2e, api
 ```
 
-### Structured Reporting
-JSON reports for CI/CD integration:
+## About me
 
-```python
-reporter = ResultsReporter("test_name")
-reporter.add_step("Login", "passed")
-reporter.save()  # Outputs to test_results/
-```
+**Theodor — QA Automation Engineer.** Python · Playwright · Pytest · Jenkins · SQL.
+Beyond UI automation: API testing, load testing with Locust, and email deliverability (DMARC / DKIM / SPF, Google Postmaster Tools).
 
-## CI/CD Integration
-
-The framework produces JSON reports compatible with most CI systems. Test results are saved to `test_results/` with timestamps for historical tracking.
+Find me on GitHub: [@TheodorGit](https://github.com/TheodorGit)
