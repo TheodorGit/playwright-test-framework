@@ -31,7 +31,9 @@ Two targets, one framework: the UI suites run against SauceDemo, and the API lay
 
 ```mermaid
 flowchart TB
+    CI["GitHub Actions"]
     CONFIG["config.py"]
+    RUN["pytest"]
 
     subgraph UIP["UI pipeline"]
         direction TB
@@ -56,16 +58,16 @@ flowchart TB
     end
 
     subgraph OUTS["Outputs"]
-        direction TB
+        direction LR
         HTML["HTML report"]
         JSON["JSON report"]
-        CI["GitHub Actions"]
-        HTML --> CI
-        JSON --> CI
+        BADGE["Summary + badge"]
     end
 
-    CONFIG --> UIP
-    CONFIG --> APIP
+    CI -->|"push · PR · weekly"| RUN
+    CONFIG --> RUN
+    RUN --> UIP
+    RUN --> APIP
     UIP --> OUTS
     APIP --> OUTS
 ```
