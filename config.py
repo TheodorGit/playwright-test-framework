@@ -34,6 +34,7 @@ class Settings:
     browser_name: str
     headless: bool
     slow_mo_ms: int
+    api_base_url: str
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -45,6 +46,9 @@ class Settings:
             browser_name=os.getenv("BROWSER", "chromium"),
             headless=_env_bool("HEADLESS", True),
             slow_mo_ms=int(os.getenv("SLOW_MO", "0")),
+            api_base_url=os.getenv(
+                "API_BASE_URL", "https://restful-booker.herokuapp.com"
+            ),
         )
 
 
