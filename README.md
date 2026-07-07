@@ -76,8 +76,8 @@ flowchart TB
 
 ```bash
 git clone https://github.com/TheodorGit/playwright-test-framework.git && cd playwright-test-framework
-pip install -r requirements.txt && playwright install chromium
-pytest -n auto
+python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
+pip install -r requirements.txt && playwright install chromium && pytest -n auto
 ```
 
 Defaults work out of the box (headless Chromium against SauceDemo). To customise, copy `.env.example` to `.env` and edit. Target URL, credentials, browser and headless mode are all environment-driven via `config.py`.
