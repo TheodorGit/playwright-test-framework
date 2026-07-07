@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    # Weekly health check so the badge reflects current reality,
+    # not just the last push (Mondays 06:00 UTC)
+    - cron: "0 6 * * 1"
   workflow_dispatch:
 
 jobs:
@@ -34,7 +38,7 @@ jobs:
 
       - name: Run UI suite (parallel)
         run: >
-          pytest -m "not api" -n auto
+          pytest -m "not api and not defect" -n auto
           --html=test_results/report.html --self-contained-html
           --json-report --json-report-file=test_results/report.json
 
@@ -59,9 +63,52 @@ jobs:
             test_results/traces/
           if-no-files-found: ignore
 
-  api-tests:
-    name: API tests
+  # Non-blocking: depends on SauceDemo's seeded broken builds staying
+  # broken. Its result is reported in the job summary but does not
+  # affect the workflow badge.
+  defect-scan:
+    name: Defect scan (known bugs, non-blocking)
     runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      HEADLESS: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browser
+        run: playwright install --with-deps chromium
+
+      - name: Run defect suite
+        run: >
+          pytest -m defect
+          --html=test_results/defect-report.html --self-contained-html
+          --json-report --json-report-file=test_results/defect-report.json
+
+      - name: Publish job summary
+        if: always()
+        run: python .github/scripts/ci_summary.py test_results/defect-report.json "Defect scan (known bugs)"
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report-defects
+          path: test_results/defect-report.html
+
+  # Non-blocking: restful-booker is a third-party sandbox with
+  # occasional outages outside this repo's control.
+  api-tests:
+    name: API tests (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
