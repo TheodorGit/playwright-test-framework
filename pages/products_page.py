@@ -18,14 +18,6 @@ class ProductsPage(BasePage):
         self.cart_badge = page.get_by_test_id("shopping-cart-badge")
         self.cart_link = page.get_by_test_id("shopping-cart-link")
 
-    def get_page_title(self) -> str:
-        """Get the page title."""
-        return self.title.text_content()
-
-    def get_product_count(self) -> int:
-        """Get the number of products displayed."""
-        return self.inventory_items.count()
-
     def get_product_names(self) -> list[str]:
         """Get all product names on the page."""
         return [item.text_content() for item in self.item_names.all()]
@@ -57,12 +49,6 @@ class ProductsPage(BasePage):
             )
         )
         item.locator("button[data-test^='remove']").click()
-
-    def get_cart_count(self) -> int:
-        """Get the number of items in the cart badge."""
-        if self.cart_badge.is_visible():
-            return int(self.cart_badge.text_content())
-        return 0
 
     def go_to_cart(self) -> None:
         """Navigate to the shopping cart."""

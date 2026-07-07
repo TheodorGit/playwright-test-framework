@@ -44,43 +44,9 @@ class CheckoutPage(BasePage):
         """Continue to the order overview page."""
         self.continue_button.click()
 
-    def get_error_message(self) -> str:
-        """Get validation error message if present."""
-        if self.error_message.is_visible():
-            return self.error_message.text_content()
-        return ""
-
-    def get_order_total(self) -> str:
-        """Get the total order amount from overview page."""
-        return self.total.text_content()
-
-    def get_subtotal(self) -> str:
-        """Get the subtotal amount."""
-        return self.subtotal.text_content()
-
-    def get_tax(self) -> str:
-        """Get the tax amount."""
-        return self.tax.text_content()
-
     def finish_order(self) -> None:
         """Complete the order."""
         self.finish_button.click()
-
-    def get_confirmation_header(self) -> str:
-        """Get the order confirmation header text."""
-        return self.complete_header.text_content()
-
-    def get_confirmation_text(self) -> str:
-        """Get the order confirmation body text."""
-        return self.complete_text.text_content()
-
-    def is_order_complete(self) -> bool:
-        """Check if the order was completed successfully."""
-        return self.complete_header.is_visible()
-
-    def back_to_products(self) -> None:
-        """Return to the products page after order completion."""
-        self.back_home_button.click()
 
     def cancel(self) -> None:
         """Cancel the checkout process."""

@@ -15,10 +15,6 @@ class CartPage(BasePage):
         self.continue_shopping_button = page.get_by_test_id("continue-shopping")
         self.checkout_button = page.get_by_test_id("checkout")
 
-    def get_page_title(self) -> str:
-        """Get the page title."""
-        return self.title.text_content()
-
     def get_cart_items(self) -> list[dict]:
         """Get all items in the cart with their details."""
         items = []
@@ -29,10 +25,6 @@ class CartPage(BasePage):
                 "quantity": item.get_by_test_id("item-quantity").text_content(),
             })
         return items
-
-    def get_item_count(self) -> int:
-        """Get the number of items in the cart."""
-        return self.cart_items.count()
 
     def remove_item(self, product_name: str) -> None:
         """Remove an item from the cart by name."""

@@ -7,13 +7,10 @@ including browser management, authentication, and test utilities.
 
 import os
 import pytest
-from dotenv import load_dotenv
 from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
 
+from config import settings
 from pages import LoginPage
-
-# Load environment variables
-load_dotenv()
 
 
 @pytest.fixture(scope="session")
@@ -21,15 +18,17 @@ def browser():
     """
     Session-scoped browser instance.
 
-    Launches a single Chromium browser for the entire test session.
-    Controlled by HEADLESS environment variable.
+    Launches a single browser (BROWSER env var: chromium, firefox or
+    webkit) for the entire test session. Headless mode and slow-motion
+    delay come from the settings module.
     """
-    headless = os.getenv("HEADLESS", "true").lower() == "true"
-
     with sync_playwright() as p:
         p.selectors.set_test_id_attribute("data-test")
-        slow_mo = int(os.getenv("SLOW_MO", "0"))
-        browser = p.chromium.launch(headless=headless, slow_mo=slow_mo)
+        browser_type = getattr(p, settings.browser_name)
+        browser = browser_type.launch(
+            headless=settings.headless,
+            slow_mo=settings.slow_mo_ms,
+        )
         yield browser
         browser.close()
 
@@ -82,32 +81,19 @@ def authenticated_page(page: Page):
     Logs in before yielding the page, ready for tests
     that require authentication.
     """
-    username = os.getenv("TEST_USERNAME", "standard_user")
-    password = os.getenv("TEST_PASSWORD", "secret_sauce")
-
     login_page = LoginPage(page)
     login_page.navigate()
-    login_page.login(username, password)
+    login_page.login(settings.username, settings.password)
 
     yield page
 
 
 @pytest.fixture(scope="session")
 def test_credentials():
-    """Provide test credentials from environment."""
+    """Provide test credentials from the settings module."""
     return {
-        "username": os.getenv("TEST_USERNAME", "standard_user"),
-        "password": os.getenv("TEST_PASSWORD", "secret_sauce"),
-    }
-
-
-@pytest.fixture(scope="session")
-def performance_thresholds():
-    """Provide performance thresholds from environment."""
-    return {
-        "login_page": float(os.getenv("LOGIN_PAGE_THRESHOLD", "5.0")),
-        "navigation": float(os.getenv("NAVIGATION_THRESHOLD", "10.0")),
-        "checkout": float(os.getenv("CHECKOUT_THRESHOLD", "8.0")),
+        "username": settings.username,
+        "password": settings.password,
     }
 
 
