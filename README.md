@@ -27,7 +27,7 @@ Built with Python, Playwright and Pytest against public demo targets by design, 
 
 ## Architecture
 
-Two targets, one framework: the UI suites run against SauceDemo, and the API layer runs against restful-booker, because SauceDemo exposes no public API. Both pipelines share the same configuration and feed the same reports.
+Two targets, one framework: the UI suites run against SauceDemo, and the API layer runs against restful-booker. Both pipelines share the same configuration and feed the same reports.
 
 ```mermaid
 flowchart TB
