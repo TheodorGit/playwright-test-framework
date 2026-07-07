@@ -19,15 +19,16 @@ def main() -> None:
     passed = summary.get("passed", 0)
     failed = summary.get("failed", 0)
     skipped = summary.get("skipped", 0)
+    xfailed = summary.get("xfailed", 0)
     duration = report.get("duration", 0.0)
 
     status = ":white_check_mark:" if failed == 0 else ":x:"
     lines = [
         f"## {status} {title}",
         "",
-        "| Total | Passed | Failed | Skipped | Duration |",
-        "|------:|-------:|-------:|--------:|---------:|",
-        f"| {total} | {passed} | {failed} | {skipped} | {duration:.1f}s |",
+        "| Total | Passed | Failed | Skipped | Known bugs caught (xfail) | Duration |",
+        "|------:|-------:|-------:|--------:|--------------------------:|---------:|",
+        f"| {total} | {passed} | {failed} | {skipped} | {xfailed} | {duration:.1f}s |",
         "",
     ]
 

@@ -17,6 +17,7 @@ class ProductsPage(BasePage):
         self.sort_dropdown = page.get_by_test_id("product-sort-container")
         self.cart_badge = page.get_by_test_id("shopping-cart-badge")
         self.cart_link = page.get_by_test_id("shopping-cart-link")
+        self.item_images = page.locator(".inventory_item_img img")
 
     def get_product_names(self) -> list[str]:
         """Get all product names on the page."""
@@ -25,6 +26,10 @@ class ProductsPage(BasePage):
     def get_product_prices(self) -> list[str]:
         """Get all product prices on the page."""
         return [price.text_content() for price in self.item_prices.all()]
+
+    def get_product_image_sources(self) -> list[str | None]:
+        """Get the image src attribute for every product on the page."""
+        return [img.get_attribute("src") for img in self.item_images.all()]
 
     def add_product_to_cart(self, index: int = 0) -> None:
         """Add a product to cart by index."""
