@@ -124,6 +124,6 @@ When a test fails, `test_results/` also receives a full-page screenshot and a Pl
 ## About me
 
 **Theodor, QA Automation Engineer.** Python · Playwright · Pytest · Jenkins · SQL.
-Beyond UI automation: API testing, load testing with Locust, gray-box backend validation (SQL, log analysis), and structured defect reporting through the full bug lifecycle.
+Beyond UI and API automation: load testing with Locust, gray-box backend validation (SQL, log analysis), and structured defect reporting through the full bug lifecycle.
 
 Find me on GitHub: [@TheodorGit](https://github.com/TheodorGit)
