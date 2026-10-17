@@ -1,33 +1,52 @@
 # E-Commerce Test Automation Framework
 
 [![tests](https://github.com/TheodorGit/playwright-test-framework/actions/workflows/tests.yml/badge.svg)](https://github.com/TheodorGit/playwright-test-framework/actions/workflows/tests.yml)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Playwright](https://img.shields.io/badge/playwright-1.55%2B-2EAD33)
+![pytest](https://img.shields.io/badge/pytest-9%2B-0A9EDC)
 
-**Catches breaks in an e-commerce purchase funnel (login, cart, checkout, and backend API contracts) on two browsers with every push, with a full local regression run in under 20 seconds. Includes [a defect log of 6 real bugs](BUGS.md) the suite catches in deliberately broken builds.**
+**Catches breaks in an e-commerce purchase funnel (login, browsing, cart, checkout, order totals and the backend API) on two browsers with every push. Every run writes a report built for the person reading it: each check says what it expected, what it found instead, and links the evidence. Includes [a defect log of 9 documented defects](BUGS.md) the suite pins in deliberately broken builds.**
 
 Built with Python, Playwright and Pytest against public demo targets by design, so everything here is runnable by anyone: the [SauceDemo](https://www.saucedemo.com/) storefront for UI and the [restful-booker](https://restful-booker.herokuapp.com) API. Client work runs against your environments.
 
-![HTML test report: 38 tests, 0 failures, 17 seconds](docs/images/test-report.png)
+## What a report looks like
+
+Every run writes its own folder: the full report, a one-page summary ready to send, machine-readable `summary.json`, and the evidence of anything that went wrong.
+
+**A green run.** The verdict first, then every test in the order the run made them, grouped by stage. Known issues are the documented defects, still reproducing.
+
+![The green run: all 43 tests passed, 109 checks](docs/images/report-green.png)
+
+**A red run: the same suite, pointed at a deliberately broken build.** Each failed check says what it expected, what happened instead, and carries its screenshot, its video and its trace.
+
+![The red run: 13 of 28 tests failed, each with its expected and actual result](docs/images/report-red.png)
+
+**The one-page summary** (`email.html`), for whoever does not open the full report:
+
+![The summary: failures first, each with its reason, then everything that passed](docs/images/summary-red.png)
 
 ## What this demonstrates
 
 | Capability | What it means for your project |
 |---|---|
-| **Bug-catching demonstration** ([BUGS.md](BUGS.md)) | The same suite, pointed at SauceDemo's deliberately broken builds, catches 6 real defects. Each is documented as a ticket a dev team could act on and pinned by an `xfail(strict)` test that alerts when the bug is fixed |
+| **Recorded checks, not bare asserts** | Each check declares what it expected before it runs, so a failure reads as "expected the total to be $32.39, instead $29.99", not `assert 29.99 == 32.39` |
+| **Reports a stakeholder can read** ([example](docs/images/report-green.png)) | Verdict, stages, every check, and plain-language reasons. No stack trace needed to see what broke |
+| **Defect reports in a fixed template** ([BUGS.md](BUGS.md), [docs/defects](docs/defects)) | Environment, preconditions, exact steps, actual against expected, evidence, cross-build verification, scope and impact. A developer can act on one without asking a question |
+| **Documented defects pinned as known issues** | A defect that still reproduces is amber in the report and keeps the run green. A defect that is fixed fails its test, which is the signal to promote the check into the regression suite |
+| **A positive control for every defect** | The same check runs on the sound build in the same run, which is what pins a defect to a build rather than to the storefront |
+| **A verification stage** | The order total is recomputed from the prices the run itself read, and the API's list and detail views are compared against the booking the run created. Nothing passes by sitting inside a tolerance |
+| **Evidence, numbered by check** | A failing or known-issue check leaves its own screenshot, and its test leaves a video of the browser and a Playwright trace, in a folder whose `test.txt` says which file answers which check |
 | **Page Object Model** with stable `data-test` locators | UI changes are cheap to absorb: update one page class and every test that uses it keeps working |
 | **Auto-retrying `expect()` assertions, zero `sleep()`** | Tests fail when the product is broken, not when the network is slow |
-| **Log in once, reuse auth state** | Authenticated tests skip the login form via Playwright storage state. That's how 38 tests finish in about 17 seconds |
-| **Parallel execution** (pytest-xdist) | Regression feedback stays fast as the suite grows. One flag (`-n auto`) spreads tests across CPU cores |
+| **Log in once, reuse auth state** | Authenticated tests skip the login form via Playwright storage state, which leaves login behaviour to the tests that are about login |
+| **Parallel execution** (pytest-xdist) | One flag (`-n auto`) spreads the suite across CPU cores, and every worker reports into the same run folder |
 | **API test layer** (httpx + JSON Schema) | Backend contract breaks caught in seconds, without launching a browser |
-| **Failure artifacts: screenshot + Playwright trace** | Every red test ships with evidence. Replay the exact failing moment step by step with `playwright show-trace` |
-| **HTML + JSON reporting** | A report stakeholders can read, plus machine-readable output that plugs into any CI/CD dashboard |
-| **GitHub Actions matrix** (Chromium + Firefox) | Cross-browser confidence on every push, with reports attached to every run as downloadable artifacts |
+| **GitHub Actions matrix** (Chromium + Firefox) | Cross-browser confidence on every push, with the whole run folder attached to each job and its verdict in the job summary |
 | **Typed settings module**, all config via `.env` | Point the same suite at dev, staging or prod by changing an env file. No code edits, no hardcoded URLs or credentials |
 
 ## Architecture
 
-Two targets, one framework: the UI suites run against SauceDemo, and the API layer runs against restful-booker. Both pipelines share the same configuration and feed the same reports.
+Two targets, one framework: the UI stages run against SauceDemo, the API layer against restful-booker. Both record their checks through the same plugin, and one builder turns a run into its report.
 
 ```mermaid
 flowchart TB
@@ -37,39 +56,56 @@ flowchart TB
 
     subgraph UIP["UI pipeline"]
         direction TB
-        FUNC["UI tests"]
-        E2E["E2E tests"]
-        DEF["Defect scan"]
+        BASE["Baseline"]
+        FUNC["Access · Browse · Cart · Checkout"]
+        E2E["Purchase journeys"]
+        VER["Verification"]
+        DEF["Documented defects"]
         POM["Page objects"]
         SD["SauceDemo"]
+        BASE --> POM
         FUNC --> POM
         E2E --> POM
+        VER --> POM
         DEF --> POM
         POM --> SD
     end
 
     subgraph APIP["API pipeline"]
         direction TB
-        APIT["API tests"]
+        APIT["Contract · negative · lifecycle"]
         HTTPX["httpx client"]
         RB["restful-booker"]
         APIT --> HTTPX
         HTTPX --> RB
     end
 
-    subgraph OUTS["Outputs"]
+    subgraph FW["framework/"]
+        direction TB
+        REC["Recorded checks"]
+        EV["Evidence: screens · video · trace"]
+        MAN["Run record"]
+        BUILD["Report builder"]
+        REC --> EV
+        REC --> MAN
+        MAN --> BUILD
+        EV --> BUILD
+    end
+
+    subgraph OUTS["Each run writes"]
         direction LR
-        HTML["HTML report"]
-        JSON["JSON report"]
-        BADGE["Summary + badge"]
+        HTML["report.html"]
+        MAIL["email.html"]
+        JSON["summary.json"]
     end
 
     CI -->|"push · PR · weekly"| RUN
     CONFIG --> RUN
     RUN --> UIP
     RUN --> APIP
-    UIP --> OUTS
-    APIP --> OUTS
+    UIP --> FW
+    APIP --> FW
+    BUILD --> OUTS
 ```
 
 ## Quickstart
@@ -78,52 +114,89 @@ flowchart TB
 git clone https://github.com/TheodorGit/playwright-test-framework.git && cd playwright-test-framework
 python -m venv .venv && source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt && playwright install chromium
-pytest -n auto    # runs the whole suite simultaneously, one worker per CPU core
 ```
 
-Heads up: `-n auto` launches several browser instances at once by design; that is the parallelism, not something going wrong. Drop the flag to run tests one at a time. The virtual environment must be active whenever you run tests, so rerun the `activate` command from step 2 in every new terminal.
+```bash
+pytest -n auto    # the whole suite, one worker per CPU core
+```
+
+Heads up: `-n auto` launches one browser instance per CPU core by design; that is the parallelism, not something going wrong. Each of them records a video and a trace, so on a small machine `-n 4` finishes about as fast and leaves the browsers room to breathe. Drop the flag to run tests one at a time. The virtual environment must be active whenever you run tests, so rerun the `activate` command from step 2 in every new terminal.
 
 Defaults work out of the box (headless Chromium against SauceDemo). To customise, copy `.env.example` to `.env` and edit. Target URL, credentials, browser and headless mode are all environment-driven via `config.py`.
+
+Each run prints where its report landed:
+
+```
+[report] [PASSED] SauceDemo storefront regression: all 43 tests passed - 100 of 109 checks passed (9 known issue(s))
+[report] test_results/run_1017_135510ef/report.html
+[report] latest: test_results/latest.html
+```
+
+`test_results/latest.html` always opens the newest run, so it can stay open in a browser tab while you work.
 
 ## Running the suites
 
 ```bash
-pytest -m smoke                  # critical paths only: login + a complete purchase
+pytest -m smoke                  # critical paths only: sign in, baseline, one purchase
 pytest -m regression -n auto     # full UI regression, parallelised
 pytest -m api                    # API layer only, no browser required
-pytest -m defect                 # catch the 6 known bugs in the broken builds (see BUGS.md)
+pytest -m verification           # the stage that recomputes the money and compares the API
+pytest -m defect                 # the 9 documented defects, against the broken builds
 pytest -m "not api" -n auto      # everything UI
+pytest framework/tests           # the framework's own unit tests, no browser
 BROWSER=firefox pytest -m smoke  # same tests, different engine
 ```
 
-Generate the reports CI produces:
+Pointing the regression suite at a broken build is one environment variable, and is how the red report above was produced:
 
 ```bash
-pytest -n auto --html=test_results/report.html --self-contained-html --css=report.css \
-       --json-report --json-report-file=test_results/report.json
+TEST_USERNAME=problem_user pytest -m "not defect and not api" -n auto
 ```
 
-When a test fails, `test_results/` also receives a full-page screenshot and a Playwright trace (`playwright show-trace test_results/traces/<test>.zip`).
+| Variable | What it does |
+|---|---|
+| `QA_RUN_LABEL` | Names the run, so its folder is `run_<id>-<label>` |
+| `QA_KEEP_VIDEOS=all` | Keeps a video of every browser test, not only of the ones that failed |
+| `QA_RESULTS_DIR` | Writes runs somewhere other than `test_results/` |
 
 ## Project structure
 
 ```
-├── .github/workflows/tests.yml   # CI: Chromium + Firefox matrix, API job, report artifacts
-├── BUGS.md                       # Defect log: 6 real bugs the suite catches, written as tickets
+├── .github/
+│   ├── scripts/ci_summary.py     # Job summary, built from the run's own summary.json
+│   └── workflows/tests.yml       # CI: Chromium + Firefox matrix, defect scan, API job
+├── BUGS.md                       # Defect log: the index, and how each report is written
 ├── config.py                     # Typed, frozen settings and the only place env vars are read
+├── docs/defects/                 # One report per defect, with the evidence the run captured
+├── framework/                    # The reporting framework
+│   ├── defects.py                # The defect catalogue the tests and the report share
+│   ├── manifest.py               # What ran and how each test ended, written as it happens
+│   ├── plugin.py                 # The pytest plugin: run folder, checks fixture, report
+│   ├── tokens.py                 # The run's identity and its folder
+│   ├── ui.py                     # Videos, traces and the screens of each check
+│   ├── tests/                    # The framework's own unit tests (no browser)
+│   └── reporting/
+│       ├── evidence.py           # Evidence folders, numbered by the check they belong to
+│       ├── failure_reasons.py    # Plain-language reasons, so a report needs no stack trace
+│       ├── profiles.py           # The stages, titles and order the report presents
+│       ├── recorder.py           # Recorded checks, known defects included
+│       └── report_builder.py     # report.html, email.html and summary.json
 ├── pages/                        # Page Object Model (BasePage + 4 page classes)
 ├── tests/
-│   ├── conftest.py               # Browser lifecycle, auth-state reuse, failure artifacts
-│   ├── functional/               # Login, products, cart, checkout
+│   ├── conftest.py               # Browser lifecycle, auth reuse, evidence, API client
+│   ├── shop.py                   # The shop arithmetic the verification stage checks against
+│   ├── baseline/                 # Readings taken before the run acts on anything
+│   ├── functional/               # Access, browse, cart, checkout
 │   ├── e2e/                      # Complete purchase journeys
-│   ├── api/                      # Contract, negative and workflow tests (httpx + JSON Schema)
-│   └── defects/                  # xfail(strict) tests pinning the bugs documented in BUGS.md
-└── pytest.ini                    # Markers: smoke, regression, functional, e2e, api, defect
+│   ├── api/                      # Contract, negative and lifecycle tests (httpx + JSON Schema)
+│   ├── verification/             # Order totals and API agreement, checked against the run
+│   └── defects/                  # The documented defects, pinned as known issues
+└── pytest.ini                    # Markers: smoke, regression, baseline, functional, e2e, api, verification, defect
 ```
 
 ## About me
 
 **Theodor, QA Automation Engineer.** Python · Playwright · Pytest · Jenkins · SQL.
-Beyond UI and API automation: load testing with Locust, gray-box backend validation (SQL, log analysis), and structured defect reporting through the full bug lifecycle.
+UI and API automation, and the reporting around it: defect reports a developer can act on, and runs that say what they checked.
 
 Find me on GitHub: [@TheodorGit](https://github.com/TheodorGit)
