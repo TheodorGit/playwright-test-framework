@@ -15,11 +15,11 @@ Every run writes its own folder: the full report, a one-page summary ready to se
 
 **A green run.** The verdict first, then every test in the order the run made them, grouped by stage. Known issues are the documented defects, still reproducing.
 
-![The green run: all 43 tests passed, 109 checks](docs/images/report-green.png)
+![The green run: all 43 tests in the suite selected, all passed, 109 checks recorded](docs/images/report-green.png)
 
-**A red run: the same suite, pointed at a deliberately broken build.** Each failed check says what it expected, what happened instead, and carries its screenshot, its video and its trace.
+**A red run: the same suite, pointed at a deliberately broken build.** Each failed check says what it expected, what happened instead, and carries its screenshot, its video and its trace. It runs the UI lane, so the report opens with what that selected: 28 of 43 tests, and the expression that deselected the other 15. Each failed test says where it stopped, because the checks it would have made after that were never recorded.
 
-![The red run: 13 of 28 tests failed, each with its expected and actual result](docs/images/report-red.png)
+![The red run: 28 of 43 tests selected, 13 failed, each with its expected and actual result](docs/images/report-red.png)
 
 **The one-page summary** (`email.html`), for whoever does not open the full report:
 
@@ -30,7 +30,7 @@ Every run writes its own folder: the full report, a one-page summary ready to se
 | Capability | What it means for your project |
 |---|---|
 | **Recorded checks, not bare asserts** | Each check declares what it expected before it runs, so a failure reads as "expected the total to be $32.39, instead $29.99", not `assert 29.99 == 32.39` |
-| **Reports a stakeholder can read** ([example](docs/images/report-green.png)) | Verdict, stages, every check, and plain-language reasons. No stack trace needed to see what broke |
+| **Reports a stakeholder can read** ([example](docs/images/report-green.png)) | Verdict, what the run was asked to run, stages, every check, and plain-language reasons. No stack trace needed to see what broke |
 | **Defect reports in a fixed template** ([BUGS.md](BUGS.md), [docs/defects](docs/defects)) | Environment, preconditions, exact steps, actual against expected, evidence, cross-build verification, scope and impact. A developer can act on one without asking a question |
 | **Documented defects pinned as known issues** | A defect that still reproduces is amber in the report and keeps the run green. A defect that is fixed fails its test, which is the signal to promote the check into the regression suite |
 | **A positive control for every defect** | The same check runs on the sound build in the same run, which is what pins a defect to a build rather than to the storefront |
@@ -127,8 +127,8 @@ Defaults work out of the box (headless Chromium against SauceDemo). To customise
 Each run prints where its report landed:
 
 ```
-[report] [PASSED] SauceDemo storefront regression: all 43 tests passed - 100 of 109 checks passed (9 known issue(s))
-[report] test_results/run_1017_135510ef/report.html
+[report] [PASSED] SauceDemo storefront regression: all 43 tests passed - 100 of 109 recorded checks passed (9 known issue(s)) - 2026-10-17 17:41 UTC
+[report] test_results/run_1017_2040829c/report.html
 [report] latest: test_results/latest.html
 ```
 
@@ -137,14 +137,15 @@ Each run prints where its report landed:
 ## Running the suites
 
 ```bash
-pytest -m smoke                  # critical paths only: sign in, baseline, one purchase
-pytest -m regression -n auto     # full UI regression, parallelised
-pytest -m api                    # API layer only, no browser required
-pytest -m verification           # the stage that recomputes the money and compares the API
-pytest -m defect                 # the 9 documented defects, against the broken builds
-pytest -m "not api" -n auto      # everything UI
-pytest framework/tests           # the framework's own unit tests, no browser
-BROWSER=firefox pytest -m smoke  # same tests, different engine
+pytest -n auto                        # the whole suite, parallelised
+pytest tests/actions                  # one action at a time: access, browse, cart, checkout
+pytest tests/e2e                      # complete purchase journeys
+pytest tests/verification             # recomputes the money, compares the API to itself
+pytest -m api                         # the API layer, wherever it lives, no browser
+pytest -m defect                      # the 9 documented defects, against the broken builds
+pytest -m "not api and not defect"    # everything the UI job runs in CI
+pytest framework/tests                # the framework's own unit tests, no browser
+BROWSER=firefox pytest tests/e2e      # same tests, different engine
 ```
 
 Pointing the regression suite at a broken build is one environment variable, and is how the red report above was produced:
@@ -171,28 +172,41 @@ TEST_USERNAME=problem_user pytest -m "not defect and not api" -n auto
 ├── framework/                    # The reporting framework
 │   ├── defects.py                # The defect catalogue the tests and the report share
 │   ├── manifest.py               # What ran and how each test ended, written as it happens
-│   ├── plugin.py                 # The pytest plugin: run folder, checks fixture, report
+│   ├── pytest_plugin.py          # The pytest plugin: run folder, checks fixture, report
 │   ├── tokens.py                 # The run's identity and its folder
 │   ├── ui.py                     # Videos, traces and the screens of each check
 │   ├── tests/                    # The framework's own unit tests (no browser)
 │   └── reporting/
 │       ├── evidence.py           # Evidence folders, numbered by the check they belong to
 │       ├── failure_reasons.py    # Plain-language reasons, so a report needs no stack trace
-│       ├── profiles.py           # The stages, titles and order the report presents
+│       ├── profiles.py           # The seam a suite registers its stages and titles through
 │       ├── recorder.py           # Recorded checks, known defects included
 │       └── report_builder.py     # report.html, email.html and summary.json
 ├── pages/                        # Page Object Model (BasePage + 4 page classes)
 ├── tests/
 │   ├── conftest.py               # Browser lifecycle, auth reuse, evidence, API client
+│   ├── profile.py                # This suite's stages, titles and order, as the report shows them
 │   ├── shop.py                   # The shop arithmetic the verification stage checks against
 │   ├── baseline/                 # Readings taken before the run acts on anything
-│   ├── functional/               # Access, browse, cart, checkout
+│   ├── actions/                  # One action at a time: access, browse, cart, checkout
 │   ├── e2e/                      # Complete purchase journeys
 │   ├── api/                      # Contract, negative and lifecycle tests (httpx + JSON Schema)
 │   ├── verification/             # Order totals and API agreement, checked against the run
 │   └── defects/                  # The documented defects, pinned as known issues
-└── pytest.ini                    # Markers: smoke, regression, baseline, functional, e2e, api, verification, defect
+└── pyproject.toml                # pytest config and markers, and the ruff rules
 ```
+
+## This repo and its sibling
+
+Two repos, two jobs. This one is where defect reporting lives: real defects in
+public builds, each written up in the field template under
+[`docs/defects/`](docs/defects) with a `DEF-NN` id, a severity and a check that
+pins it. [saas-e2e-reference-architecture](https://github.com/TheodorGit/saas-e2e-reference-architecture)
+carries no defect reports on purpose: its defects are switches in its own
+example app, so what it documents is the pattern that catches each class of
+them, in its case studies and its bug matrix. One shows how a defect is written
+up for a developer, the other how a suite is built to find it in the first
+place. The reporting framework here is a scaled-down port of the one there.
 
 ## About me
 

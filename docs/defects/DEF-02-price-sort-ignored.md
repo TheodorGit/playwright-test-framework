@@ -2,7 +2,7 @@
 
 | Field | Entry |
 |---|---|
-| **Title** | SauceDemo, problem_user build - sorting the catalogue leaves the order untouched, with no error |
+| **Title** | SauceDemo, problem_user build - choosing a sort option reverts the dropdown and leaves the grid unsorted, with no error |
 | **Source URL** | <https://www.saucedemo.com/inventory.html> |
 | **Version in which the defect was initially detected** | SauceDemo publishes no build number. The defect belongs to the build served to `problem_user`; this suite first recorded it on 2026-10-17, run `1017_1337f860`. |
 | **Source / Owner** | QA. Found by the regression suite, pointed at the `problem_user` build. |
@@ -15,8 +15,9 @@
 ## Full defect description
 
 Choosing an option in the catalogue sort dropdown leaves the grid in its
-original order. The dropdown shows the chosen option, so the page claims the
-sort was applied, and nothing tells the customer otherwise.
+original order. The dropdown does not keep the choice either: it reverts to the
+option that was showing before, so the selection the customer just made
+disappears. Nothing else tells them the sort failed.
 
 ## Preconditions
 
@@ -34,8 +35,9 @@ at different prices.
 ## Actual results
 
 The grid keeps its original order after the sort is chosen:
-`$29.99, $9.99, $15.99, $49.99, $7.99, $15.99`. The dropdown shows the selected
-option, and no error appears anywhere on the page.
+`$29.99, $9.99, $15.99, $49.99, $7.99, $15.99`. The dropdown reads
+`Name (A to Z)` again, the option it showed before the choice, and no error
+appears anywhere on the page.
 
 ## Expected results
 
@@ -44,8 +46,10 @@ same for the other three sort options.
 
 ## Movie / console logs / network requests
 
-No console error and no request accompany the choice: the page simply does not
-reorder. The check records the order it read, which is the sequence above.
+No console message, no page error and no dialog accompany the choice. The one
+request it triggers is a re-fetch of the placeholder image this build serves for
+every product, which shows the page did re-render and simply did not sort. The
+check records the order it read, which is the sequence above.
 
 ## Defect verification on other builds and estimations
 
