@@ -34,10 +34,11 @@ class Settings:
     browser_name: str
     headless: bool
     slow_mo_ms: int
+    ui_timeout_ms: int
     api_base_url: str
 
     @classmethod
-    def from_env(cls) -> "Settings":
+    def from_env(cls) -> Settings:
         """Build a Settings instance from the environment / .env file."""
         return cls(
             base_url=os.getenv("BASE_URL", "https://www.saucedemo.com/"),
@@ -46,6 +47,7 @@ class Settings:
             browser_name=os.getenv("BROWSER", "chromium"),
             headless=_env_bool("HEADLESS", True),
             slow_mo_ms=int(os.getenv("SLOW_MO", "0")),
+            ui_timeout_ms=int(os.getenv("UI_TIMEOUT_MS", "10000")),
             api_base_url=os.getenv(
                 "API_BASE_URL", "https://restful-booker.herokuapp.com"
             ),

@@ -17,6 +17,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from framework import tokens  # noqa: E402
 
 
+def selected(summary: dict) -> str:
+    """What this job was asked to run, so a smaller count is never a mystery."""
+    return (summary.get("selection") or {}).get("sentence", "")
+
+
 def rows(summary: dict) -> list[str]:
     counts = summary["counts"]
     status = ":white_check_mark:" if summary["verdict"] == "passed" else ":x:"
@@ -27,11 +32,16 @@ def rows(summary: dict) -> list[str]:
         "",
         f"`{summary['subject']}`",
         "",
-        "| Tests | Passed | Failed | Not verified | Known issues | Checks | Duration |",
-        "|------:|-------:|-------:|-------------:|-------------:|-------:|---------:|",
+        selected(summary),
+        "",
+        "| Tests | Passed | Failed | Not verified | Known issues "
+        "| Checks recorded | Duration |",
+        "|------:|-------:|-------:|-------------:|-------------:|"
+        "----------------:|---------:|",
         f"| {counts['total']} | {counts['passed']} | {counts['failed']} | "
         f"{counts['skipped']} | {counts['known_issues']} | "
-        f"{counts['checks_passed']}/{counts['checks']} | {summary['duration']}s |",
+        f"{counts['checks_passed']} of {counts['checks_recorded']} passed "
+        f"| {summary['duration']}s |",
         "",
     ]
 

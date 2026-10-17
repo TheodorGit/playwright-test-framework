@@ -69,8 +69,26 @@ def _evidence(run_dir: Path) -> dict:
     return found
 
 
+def selection_view(selection: dict, ran: int) -> dict:
+    """What the run was asked to run: pytest's own numbers, and one sentence."""
+    collected = (selection or {}).get("collected") or 0
+    if not collected:
+        return {}
+    view = {**selection, "ran": ran}
+    if view["selected"] == collected:
+        sentence = f"All {collected} tests in the suite selected"
+    else:
+        sentence = (f"{view['selected']} of {collected} tests selected - "
+                    f"{view['deselected']} deselected")
+        if view.get("expression"):
+            sentence += f" by {view['expression']}"
+    view["sentence"] = sentence if ran == view["selected"] else f"{sentence} - {ran} ran"
+    return view
+
+
 def load_run(run_dir) -> dict:
     run_dir = Path(run_dir)
+    suite = profiles.active()
     header = manifest.read_run(run_dir)
     recorded = _check_files(run_dir)
     kept = _evidence(run_dir)
@@ -79,6 +97,7 @@ def load_run(run_dir) -> dict:
     tests = []
     for entry in manifest.read_tests(run_dir):
         nodeid, func = entry["nodeid"], entry["func"]
+        profile = profiles.profile_for(nodeid)
         record = recorded.get(nodeid, {})
         checks = record.get("checks", [])
         metadata = record.get("metadata", {})
@@ -86,9 +105,9 @@ def load_run(run_dir) -> dict:
             tally[key] = tally.get(key, 0) + value
         tests.append({
             "nodeid": nodeid, "func": func,
-            "title": record.get("title") or profiles.title_for(func),
-            "section": record.get("section") or profiles.section_for(func),
-            "number": profiles.number_for(func),
+            "title": record.get("title") or profile.title_for(func),
+            "section": record.get("section") or profile.section_for(func),
+            "number": profile.number_for(func),
             "status": entry["status"], "duration": entry.get("duration", 0),
             "failure": entry.get("failure"), "skip_reason": entry.get("skip_reason"),
             "checks": checks,
@@ -105,8 +124,11 @@ def load_run(run_dir) -> dict:
     counts["total"] = len(tests)
     counts["known_issues"] = sum(len(t["known_issues"]) for t in tests)
     counts["skipped_checks"] = sum(len(t["skipped_checks"]) for t in tests)
-    # A test with no recorded checks still checked one thing directly.
-    counts["checks"] = sum(len(t["checks"]) or 1 for t in tests) - counts["skipped_checks"]
+    # A test with no recorded checks still checked one thing directly. This is
+    # what the run recorded, never what it would have recorded: a test that dies
+    # at its third check never declares the ones it would have made after it.
+    counts["checks_recorded"] = (sum(len(t["checks"]) or 1 for t in tests)
+                                 - counts["skipped_checks"])
     counts["checks_passed"] = sum(
         sum(1 for c in t["checks"] if c.get("status") == PASSED) if t["checks"]
         else int(t["status"] == "passed") for t in tests)
@@ -122,11 +144,13 @@ def load_run(run_dir) -> dict:
         "finished": header.get("finished") or _last_touched(run_dir),
         "duration": header.get("duration", 0), "label": header.get("label"),
         "environment": header.get("environment"), "interrupted": interrupted,
-        "suite_title": profiles.SUITE_TITLE,
-        "passed_subhead": profiles.PASSED_SUBHEAD,
+        "suite_title": suite.title,
+        "passed_subhead": suite.passed_subhead,
+        "selection": selection_view(manifest.read_selection(run_dir),
+                                    counts["total"]),
         "counts": counts, "verdict": verdict, "tests": tests,
-        "facts": profiles.facts(tally),
-        "subject": subject_line(profiles.SUITE_TITLE, verdict, counts,
+        "facts": suite.facts(tally),
+        "subject": subject_line(suite.title, verdict, counts,
                                 header.get("finished")),
     }
 
@@ -148,7 +172,8 @@ def subject_line(name: str, verdict: str, counts: dict, finished: str) -> str:
                 f"{counts['skipped']} not verified")
     else:
         head = f"[PASSED] {name}: all {total} tests passed"
-    head += f" - {counts['checks_passed']} of {counts['checks']} checks passed"
+    head += (f" - {counts['checks_passed']} of "
+             f"{counts['checks_recorded']} recorded checks passed")
     if counts.get("known_issues"):
         head += f" ({counts['known_issues']} known issue(s))"
     if counts.get("skipped_checks"):
@@ -166,10 +191,47 @@ def failure_view(test: dict) -> dict:
                 "instead": (bad.get("message") or "").strip()
                            or first_error_line(test["failure"]),
                 "error": (bad.get("error") or "").strip(),
-                "defect": bad.get("defect")}
+                "defect": bad.get("defect"),
+                "stopped": _stopped(test)}
     return {"check": "", "means": classify_failure_text(test["failure"]),
             "expected": "", "instead": first_error_line(test["failure"]),
-            "error": "", "defect": None}
+            "error": "", "defect": None, "stopped": _stopped(test)}
+
+
+def _stopped(test: dict) -> dict:
+    """Where a failed test stopped, so a short list of checks is never a mystery.
+
+    The recorded checks are what the run made, not what the test holds, and
+    only the test itself knows the rest. What the report can say is where it
+    got to: inside the check that broke, or on an action between checks.
+    """
+    if test["status"] != "failed" or not test["checks"]:
+        return {}
+    last = test["checks"][-1]
+    if last.get("status") == FAILED:
+        # An independent check records its failure and lets the rest run.
+        return {} if last.get("soft") else {"number": len(test["checks"]),
+                                            "inside": True}
+    if last.get("status") == SKIPPED:
+        # That check already says it did not run, and says why.
+        return {}
+    return {"number": len(test["checks"]), "inside": False}
+
+
+def _stopped_text(stopped: dict) -> str:
+    if not stopped:
+        return ""
+    if stopped["inside"]:
+        return (f'The test stopped at check {stopped["number"]}, so whatever it would '
+                f'have checked after this one did not run.')
+    return (f'The test stopped after check {stopped["number"]}, on an action rather '
+            f'than a check, so whatever it would have checked after that did not run.')
+
+
+def _stopped_note(stopped: dict) -> str:
+    text = _stopped_text(stopped)
+    return (f'<div style="margin:6px 0 2px;font-size:12px;color:{MUTED};">{text}</div>'
+            if text else "")
 
 
 def _pill(status: str, label: str = None) -> str:
@@ -249,6 +311,7 @@ def _checks_table(test: dict) -> str:
                       "No checks recorded: it failed before its first check.")
         return f'<p style="color:{MUTED};font-size:13px;">{text}</p>'
     rows, first_failure = [], True
+    stopped = _stopped(test)
     files = (test.get("evidence") or {}).get("files", {})
     for number, check in enumerate(test["checks"], 1):
         status = check.get("status", SKIPPED)
@@ -270,6 +333,8 @@ def _checks_table(test: dict) -> str:
                 cell += _labelled("Would have checked", check["expected"])
         else:
             cell += f'<div style="font-size:13px;">{_esc(check.get("message"))}</div>'
+        if stopped.get("inside") and number == stopped["number"]:
+            cell += _stopped_note(stopped)
         if number in files:
             links = " - ".join(f'<a href="{_esc(quote(path))}">{_esc(label)}</a>'
                                for label, path in files[number])
@@ -300,6 +365,8 @@ def _test_block(test: dict) -> str:
             c.get("status") == FAILED for c in test["checks"]):
         f = failure_view(test)
         body += _why_box(f["means"], f["expected"], f["instead"], test["failure"])
+        # It broke between checks, so no check row can carry where it got to.
+        body += _stopped_note(f["stopped"])
     video = (test.get("metadata") or {}).get("video")
     if video:
         body += (f'<div style="margin:6px 0;font-size:12px;color:{MUTED};">'
@@ -348,14 +415,20 @@ def _headline(run: dict) -> str:
     return {"failed": f'{c["failed"]} of {c["total"]} tests failed',
             "skipped": f'{c["passed"]} tests passed, {c["skipped"]} not verified',
             "passed": f'All {c["total"]} tests passed'}[run["verdict"]] \
-        + f' - {c["checks"]} checks'
+        + f' - {c["checks_recorded"]} checks recorded'
+
+
+def _sections_present(tests: list) -> list[str]:
+    """The run's own sections, in the profile's order, keeping any it does not name."""
+    seen = list(dict.fromkeys(t["section"] for t in tests))
+    order = profiles.active().sections_in_order()
+    return [s for s in order if s in seen] + [s for s in seen if s not in order]
 
 
 def render_report(run: dict) -> str:
     v = STATUS[run["verdict"]]
     c = run["counts"]
-    present = [s for s in profiles.sections_in_order()
-               if any(t["section"] == s for t in run["tests"])]
+    present = _sections_present(run["tests"])
     sections = []
     for name in present:
         blocks = "".join(_test_block(t) for t in run["tests"] if t["section"] == name)
@@ -371,6 +444,9 @@ def render_report(run: dict) -> str:
                    f'interrupted; tests still executing are reported as not '
                    f'verified.</p>' if run["interrupted"] else "")
     label = f' - {_esc(run["label"])}' if run.get("label") else ""
+    sentence = (run.get("selection") or {}).get("sentence", "")
+    selected = (f'<div style="font-size:13px;font-weight:600;color:{INK};'
+                f'margin:2px 0 2px;">{_esc(sentence)}</div>' if sentence else "")
     return (
         f'<!doctype html><html><head><meta charset="utf-8">'
         f'<meta name="viewport" content="width=device-width,initial-scale=1">'
@@ -384,7 +460,7 @@ def render_report(run: dict) -> str:
         f'{_duration(run["duration"])}</div>'
         f'<div style="background:{v["bg"]};border-radius:8px;padding:16px 18px;">'
         f'<div style="color:{v["fg"]};font-weight:700;font-size:11px;'
-        f'letter-spacing:.08em;">{v["label"]}</div>'
+        f'letter-spacing:.08em;">{v["label"]}</div>{selected}'
         f'<div style="font-size:22px;font-weight:700;">{_esc(_headline(run))}</div>'
         f'<div style="font-size:13px;color:{MUTED};">{c["passed"]} passed - '
         f'{c["failed"]} failed - {c["skipped"]} not verified - {c["known_issues"]} '
@@ -433,6 +509,9 @@ def render_email(run: dict) -> str:
     subhead = {"failed": "Failures first, each with the exact check that broke.",
                "skipped": "Nothing failed, but the tests below did not run.",
                "passed": run["passed_subhead"]}[run["verdict"]]
+    sentence = (run.get("selection") or {}).get("sentence", "")
+    selected = (f'<div style="font-size:13px;font-weight:600;color:{INK};">'
+                f'{_esc(sentence)}</div>' if sentence else "")
     blocks = []
     if failed:
         blocks.append(_email_heading(f"Failed ({len(failed)})", STATUS["failed"]["fg"]))
@@ -447,6 +526,9 @@ def render_email(run: dict) -> str:
             inner += _labelled("Instead", f["instead"])
             if f["check"]:
                 inner += _labelled("Check", f["check"])
+            if f["stopped"]:
+                inner += (f'<div style="margin-top:6px;font-size:12px;color:{MUTED};">'
+                          f'{_esc(_stopped_text(f["stopped"]))}</div>')
             blocks.append(_email_card(test, STATUS["failed"]["bg"], inner))
     if known:
         total_known = counts["known_issues"]
@@ -496,7 +578,7 @@ def render_email(run: dict) -> str:
         f'font-size:16px;font-weight:700;">{_esc(run["suite_title"])}</td></tr>'
         f'<tr><td style="padding:16px 24px;background:{v["bg"]};"><div style="color:'
         f'{v["fg"]};font-size:11px;font-weight:700;letter-spacing:.08em;">'
-        f'{v["label"]}</div><div style="font-size:20px;font-weight:700;">'
+        f'{v["label"]}</div>{selected}<div style="font-size:20px;font-weight:700;">'
         f'{_esc(_headline(run))}</div><div style="font-size:13px;color:{MUTED};">'
         f'{_esc(subhead)}</div></td></tr>{strip_row}{"".join(blocks)}'
         f'<tr><td style="padding:16px 24px;background:{PAGE};font-size:12px;'
@@ -528,7 +610,8 @@ def _summary(run: dict) -> dict:
         issues = [c.get("defect") or c.get("check") for c in test["known_issues"]]
         rows.append({"nodeid": test["nodeid"], "title": test["title"],
                      "section": test["section"], "status": test["status"],
-                     "duration": test["duration"], "checks": len(test["checks"]),
+                     "duration": test["duration"],
+                     "checks_recorded": len(test["checks"]),
                      "checks_passed": passed, "known_issues": issues})
     summary["tests"] = rows
     return summary

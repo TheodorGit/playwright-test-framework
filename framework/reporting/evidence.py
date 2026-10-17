@@ -10,8 +10,7 @@ import re
 from pathlib import Path
 
 from framework.reporting import profiles
-from framework.reporting.recorder import (FAILED, KNOWN_ISSUE, SKIPPED,
-                                          CheckRecorder, safe_name)
+from framework.reporting.recorder import FAILED, KNOWN_ISSUE, SKIPPED, CheckRecorder, safe_name
 
 EVIDENCE_DIR = "evidence"
 ID_FILE = "test.txt"
@@ -46,7 +45,8 @@ def folder_name(recorder: CheckRecorder) -> str:
 
 
 def title_of(recorder: CheckRecorder) -> str:
-    return recorder.title or profiles.title_for(func_of(recorder))
+    return recorder.title or profiles.profile_for(
+        recorder.nodeid).title_for(func_of(recorder))
 
 
 def write_index(recorder: CheckRecorder, folder: Path):

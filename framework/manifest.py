@@ -7,12 +7,14 @@ over each other.
 """
 
 import json
+import os
 from datetime import UTC, datetime
 from pathlib import Path
 
 from framework.reporting.recorder import safe_name
 
 RUN_FILE = "run.json"
+SELECTION_FILE = "selection.json"
 TESTS_DIR = "tests"
 IN_FLIGHT = "the run ended while this test was still executing"
 
@@ -39,6 +41,37 @@ def read_run(directory) -> dict:
         raise FileNotFoundError(f"{path} not found: nothing authoritative to "
                                 f"report on")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def record_selection(directory, collected: int, selected: int,
+                     expression: str = "") -> Path:
+    """What the run was asked to run, written while collection still knows.
+
+    Every pytest-xdist worker collects the same suite and writes the same
+    numbers, so the replace is what keeps a reader from meeting half a file.
+    """
+    path = Path(directory) / SELECTION_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_suffix(f".{os.getpid()}.json")
+    partial.write_text(json.dumps({
+        "collected": collected,
+        "selected": selected,
+        "deselected": collected - selected,
+        "expression": expression or "",
+    }, indent=2), encoding="utf-8")
+    os.replace(partial, path)
+    return path
+
+
+def read_selection(directory) -> dict:
+    """The run's selection, or nothing at all for a run that recorded none."""
+    path = Path(directory) / SELECTION_FILE
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except ValueError:
+        return {}
 
 
 def finish_run(directory) -> Path:

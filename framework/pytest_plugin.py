@@ -12,6 +12,8 @@ from framework.reporting.recorder import CheckRecorder
 ENVIRONMENT_ENV = "QA_ENVIRONMENT"
 LATEST_PAGE_ENV = "QA_LATEST_PAGE"
 LAST_IN_THE_PLAN = 10 ** 6
+# Pytest reports its deselections as it makes them, so they are counted, not derived.
+_deselected: list = []
 
 
 def environment() -> str:
@@ -35,9 +37,35 @@ def pytest_report_header(config):
     return f"run {tokens.current_run_id()} in {tokens.run_dir().as_posix()}"
 
 
+def pytest_deselected(items):
+    _deselected.extend(items)
+
+
+def pytest_collection_finish(session):
+    """Records what was selected, while collection still holds both halves."""
+    selected = len(session.items)
+    if not selected and not _deselected:
+        # Nothing collected here: the pytest-xdist controller leaves that to its
+        # workers, and an empty collection has no selection to report.
+        return
+    manifest.record_selection(tokens.run_dir(), selected + len(_deselected), selected,
+                              selection_expression(session.config))
+
+
+def selection_expression(config) -> str:
+    """How the run was narrowed, in the words a reader would retype."""
+    asked = (("-m", getattr(config.option, "markexpr", "")),
+             ("-k", getattr(config.option, "keyword", "")))
+    return " ".join(f'{flag} "{value}"' for flag, value in asked if value)
+
+
 def pytest_collection_modifyitems(config, items):
     """Runs the suite in the order the report presents it."""
-    items.sort(key=lambda item: profiles.number_for(_func(item)) or LAST_IN_THE_PLAN)
+    def place(item):
+        number = profiles.profile_for(item.nodeid).number_for(_func(item))
+        return number or LAST_IN_THE_PLAN
+
+    items.sort(key=place)
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -76,10 +104,13 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 def _discard_if_empty(directory: Path):
-    run_file = directory / manifest.RUN_FILE
-    if [p.name for p in directory.iterdir()] != [run_file.name]:
+    # A collection writes the run's header and its selection and nothing else,
+    # which is a folder worth removing rather than a run worth reporting.
+    paper = {manifest.RUN_FILE, manifest.SELECTION_FILE}
+    if not {p.name for p in directory.iterdir()} <= paper:
         return
-    run_file.unlink()
+    for name in paper:
+        (directory / name).unlink(missing_ok=True)
     directory.rmdir()
 
 
@@ -104,17 +135,18 @@ def run_id() -> str:
 
 
 @pytest.fixture
-def steps(request):
+def checks(request):
     """
     The checks this test records.
 
     Saved whatever the outcome, so a failing or interrupted test still
     reports what it had checked by then, and the independent checks it
-    recorded with soft_step are raised together here.
+    recorded with soft_check are raised together here.
     """
     func = _func(request.node)
-    recorder = CheckRecorder(request.node.nodeid, profiles.title_for(func),
-                             profiles.section_for(func))
+    profile = profiles.profile_for(request.node.nodeid)
+    recorder = CheckRecorder(request.node.nodeid, profile.title_for(func),
+                             profile.section_for(func))
     yield recorder
     setup = getattr(request.node, "rep_setup", None)
     call = getattr(request.node, "rep_call", None)

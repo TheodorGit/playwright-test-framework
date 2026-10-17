@@ -44,9 +44,15 @@ def classify_failure_text(failure: str) -> str:
     return ""
 
 
+ASSERTION = "AssertionError:"
+
+
 def first_error_line(failure: str) -> str:
     lines = [ln.rstrip() for ln in (failure or "").splitlines() if ln.strip()]
     errors = [ln.strip()[2:].strip() for ln in lines if ln.strip().startswith("E ")]
-    if errors:
-        return errors[0][:300]
-    return lines[-1][:300] if lines else ""
+    line = errors[0] if errors else (lines[-1] if lines else "")
+    # An assertion carries its reason in its own words; the class name adds none.
+    # Other exception types keep theirs, which is often the whole story.
+    if line.startswith(ASSERTION):
+        line = line[len(ASSERTION):].strip()
+    return line[:300]

@@ -109,8 +109,8 @@ class CheckRecorder:
         self._notify("finished", check, len(self.checks))
         return check
 
-    def step(self, name: str, fn, expected: str = "", means: str = None, found=None,
-             ui: bool = False, **data):
+    def check(self, name: str, fn, expected: str = "", means: str = None, found=None,
+              ui: bool = False, **data):
         """Runs a check and records it. On failure it records why, then re-raises."""
         self._pending = []
         self._notify("started", name)
@@ -127,12 +127,14 @@ class CheckRecorder:
         self._add(name, PASSED, said, data, ui=ui)
         return out
 
-    def soft_step(self, name: str, fn, expected: str = "", means: str = None,
-                  found=None, ui: bool = False, **data):
+    def soft_check(self, name: str, fn, expected: str = "", means: str = None,
+                   found=None, ui: bool = False, **data):
         """An independent check: it records its failure and lets the rest run."""
         try:
-            return self.step(name, fn, expected, means=means, found=found, ui=ui, **data)
+            return self.check(name, fn, expected, means=means, found=found, ui=ui, **data)
         except Exception as exc:
+            # Marked so the report never says the test stopped here: it did not.
+            self.checks[-1]["soft"] = True
             self._soft_failures.append(f"{name}: {describe(exc)}")
             return None
 
@@ -165,7 +167,7 @@ class CheckRecorder:
             f"{defect} no longer reproduces ({name}). Promote this check into the "
             f"regression suite and close docs/defects/{record.doc}.")
 
-    def skip_step(self, name: str, reason: str, expected: str = "", **data):
+    def skip_check(self, name: str, reason: str, expected: str = "", **data):
         """A check this run could not make: reported as not run, never as passed."""
         self._add(name, SKIPPED, reason, data, expected=expected)
 
