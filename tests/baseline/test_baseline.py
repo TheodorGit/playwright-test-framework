@@ -5,12 +5,8 @@ The baseline is read first and reported first, so a later check that
 disagrees with it has something honest to disagree with.
 """
 
-import pytest
-
 from pages import ProductsPage
 from tests import shop
-
-pytestmark = [pytest.mark.baseline, pytest.mark.smoke]
 
 CATALOGUE_SIZE = 6
 
@@ -38,39 +34,41 @@ def _images(products: ProductsPage) -> list[str]:
     sources = products.get_product_image_sources()
     missing = [s for s in sources if not s]
     assert not missing, f"a product has no image: {sources}"
-    assert len(set(sources)) == len(sources), (
-        f"{len(sources)} products share {len(set(sources))} images: {sorted(set(sources))}")
+    distinct = sorted(set(sources))
+    assert len(distinct) == len(sources), (
+        f"{len(sources)} products show only {len(distinct)} distinct image(s): "
+        f"{', '.join(str(source) for source in distinct)}")
     return sources
 
 
-def test_storefront_baseline(authenticated_page, steps):
+def test_storefront_baseline(authenticated_page, checks):
     """Reads the catalogue the rest of the run works from."""
     products = ProductsPage(authenticated_page)
 
-    names = steps.step(
+    names = checks.check(
         "the catalogue lists every product",
         lambda: _names(products),
         expected=f"{CATALOGUE_SIZE} products, each with a name",
         found=lambda read: f"{len(read)} products listed",
         ui=True)
-    steps.step(
+    checks.check(
         "every product carries a price",
         lambda: _prices(products),
         expected="a price above zero on every product",
         found=lambda read: (f"{len(read)} prices, {shop.money(min(read))} to "
                             f"{shop.money(max(read))}"))
-    steps.step(
+    checks.check(
         "every product shows its own image",
         lambda: _images(products),
         expected="one distinct image per product",
         found=lambda read: f"{len(set(read))} distinct images")
-    steps.step(
+    checks.check(
         "the cart starts empty",
         lambda: _assert_empty(products),
         expected="no cart badge before this run adds anything",
         ui=True)
-    steps.add_metadata("catalogue", names)
-    steps.tally("products read", len(names))
+    checks.add_metadata("catalogue", names)
+    checks.tally("products read", len(names))
 
 
 def _assert_empty(products: ProductsPage):

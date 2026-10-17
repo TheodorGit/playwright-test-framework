@@ -28,98 +28,98 @@ def _assert_fields(found: dict, wanted: dict):
     return len(wanted)
 
 
-def test_created_booking_matches_the_contract(api_client, booking_payload, steps):
+def test_created_booking_matches_the_contract(api_client, booking_payload, checks):
     response = api_client.post("/booking", json=booking_payload)
     body = response.json() if response.content else {}
 
-    steps.step("the API accepts the booking",
-               lambda: _assert_status(response, 200),
-               expected="200, the documented success code")
-    steps.step("the response honours the documented contract",
-               lambda: validate(instance=body, schema=CREATED_BOOKING_SCHEMA),
-               expected="a bookingid and a booking, with the documented types")
-    steps.step("the booking it echoes back is the booking sent",
-               lambda: _assert_fields(body.get("booking", {}), booking_payload),
-               expected="every field as sent, nothing silently changed",
-               found=lambda count: f"{count} fields returned unchanged")
-    steps.tally("bookings created", 1)
+    checks.check("the API accepts the booking",
+                 lambda: _assert_status(response, 200),
+                 expected="200, the documented success code")
+    checks.check("the response honours the documented contract",
+                 lambda: validate(instance=body, schema=CREATED_BOOKING_SCHEMA),
+                 expected="a bookingid and a booking, with the documented types")
+    checks.check("the booking it echoes back is the booking sent",
+                 lambda: _assert_fields(body.get("booking", {}), booking_payload),
+                 expected="every field as sent, nothing silently changed",
+                 found=lambda count: f"{count} fields returned unchanged")
+    checks.tally("bookings created", 1)
 
 
-def test_read_booking_matches_the_contract(api_client, booking_payload, steps):
+def test_read_booking_matches_the_contract(api_client, booking_payload, checks):
     created = api_client.post("/booking", json=booking_payload)
     booking_id = created.json()["bookingid"]
     response = api_client.get(f"/booking/{booking_id}")
     body = response.json() if response.content else {}
 
-    steps.step("the booking can be read back by its id",
-               lambda: _assert_status(response, 200),
-               expected=f"200 for booking {booking_id}")
-    steps.step("the booking read back honours the documented contract",
-               lambda: validate(instance=body, schema=BOOKING_SCHEMA),
-               expected="the documented booking fields and types")
-    steps.step("it holds what was created, not a default",
-               lambda: _assert_fields(body, booking_payload),
-               expected="the same name, price, deposit and dates",
-               found=lambda count: f"{count} fields match the creation")
-    steps.tally("bookings created", 1)
+    checks.check("the booking can be read back by its id",
+                 lambda: _assert_status(response, 200),
+                 expected=f"200 for booking {booking_id}")
+    checks.check("the booking read back honours the documented contract",
+                 lambda: validate(instance=body, schema=BOOKING_SCHEMA),
+                 expected="the documented booking fields and types")
+    checks.check("it holds what was created, not a default",
+                 lambda: _assert_fields(body, booking_payload),
+                 expected="the same name, price, deposit and dates",
+                 found=lambda count: f"{count} fields match the creation")
+    checks.tally("bookings created", 1)
 
 
-def test_auth_refuses_wrong_credentials(api_client, steps):
+def test_auth_refuses_wrong_credentials(api_client, checks):
     response = api_client.post("/auth", json=BAD_CREDENTIALS)
     body = response.json() if response.content else {}
 
-    steps.step("the request itself is answered",
-               lambda: _assert_status(response, 200),
-               expected="200, since this API reports auth failures in the body")
-    steps.step("no token is issued",
-               lambda: _assert_no_token(body),
-               expected="a body with no token in it")
-    steps.step("the refusal says why",
-               lambda: _assert_reason(body, "Bad credentials"),
-               expected="reason: Bad credentials")
+    checks.check("the request itself is answered",
+                 lambda: _assert_status(response, 200),
+                 expected="200, since this API reports auth failures in the body")
+    checks.check("no token is issued",
+                 lambda: _assert_no_token(body),
+                 expected="a body with no token in it")
+    checks.check("the refusal says why",
+                 lambda: _assert_reason(body, "Bad credentials"),
+                 expected="reason: Bad credentials")
 
 
-def test_missing_booking_returns_404(api_client, steps):
+def test_missing_booking_returns_404(api_client, checks):
     response = api_client.get(f"/booking/{MISSING_ID}")
 
-    steps.step("a booking that does not exist answers 404",
-               lambda: _assert_status(response, 404),
-               expected=f"404 for booking {MISSING_ID}, not an empty 200")
+    checks.check("a booking that does not exist answers 404",
+                 lambda: _assert_status(response, 404),
+                 expected=f"404 for booking {MISSING_ID}, not an empty 200")
 
 
-def test_booking_lifecycle(api_client, auth_token, booking_payload, steps):
+def test_booking_lifecycle(api_client, auth_token, booking_payload, checks):
     """Create, update, read back and delete, each stage its own check."""
     created = api_client.post("/booking", json=booking_payload)
-    steps.step("the booking is created",
-               lambda: _assert_status(created, 200),
-               expected="200 with a new bookingid")
+    checks.check("the booking is created",
+                 lambda: _assert_status(created, 200),
+                 expected="200 with a new bookingid")
     booking_id = created.json()["bookingid"]
-    steps.add_metadata("booking_id", booking_id)
-    steps.tally("bookings created", 1)
+    checks.add_metadata("booking_id", booking_id)
+    checks.tally("bookings created", 1)
 
     # This API authorises writes with a token in a cookie.
     headers = {"Cookie": f"token={auth_token}"}
     updated_payload = {**booking_payload, "totalprice": 999}
     updated = api_client.put(f"/booking/{booking_id}", json=updated_payload,
                              headers=headers)
-    steps.step("the update is accepted",
-               lambda: _assert_status(updated, 200),
-               expected="200 for the authorised update")
+    checks.check("the update is accepted",
+                 lambda: _assert_status(updated, 200),
+                 expected="200 for the authorised update")
 
     fetched = api_client.get(f"/booking/{booking_id}")
-    steps.step("the update is what the API now reports",
-               lambda: _assert_fields(fetched.json(), {"totalprice": 999}),
-               expected="totalprice 999, read back from the API")
+    checks.check("the update is what the API now reports",
+                 lambda: _assert_fields(fetched.json(), {"totalprice": 999}),
+                 expected="totalprice 999, read back from the API")
 
     deleted = api_client.delete(f"/booking/{booking_id}", headers=headers)
-    steps.step("the booking is deleted",
-               lambda: _assert_status(deleted, DELETED),
-               expected=f"{DELETED}, this API's documented delete code")
+    checks.check("the booking is deleted",
+                 lambda: _assert_status(deleted, DELETED),
+                 expected=f"{DELETED}, this API's documented delete code")
 
     gone = api_client.get(f"/booking/{booking_id}")
-    steps.step("the deleted booking is gone, not merely hidden",
-               lambda: _assert_status(gone, 404),
-               expected="404 once it is deleted")
+    checks.check("the deleted booking is gone, not merely hidden",
+                 lambda: _assert_status(gone, 404),
+                 expected="404 once it is deleted")
 
 
 def _assert_no_token(body: dict):

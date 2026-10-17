@@ -16,9 +16,10 @@ from playwright.sync_api import Browser, Page, sync_playwright
 
 from config import settings
 from framework import tokens, ui
-from pages import LoginPage
+from pages import LoginPage, ProductsPage
+from tests import profile  # noqa: F401  Registers this suite's report profile.
 
-pytest_plugins = ["framework.plugin"]
+pytest_plugins = ["framework.pytest_plugin"]
 
 VIEWPORT = {"width": 1920, "height": 1080}
 VIDEO_SIZE = {"width": 1280, "height": 720}
@@ -64,39 +65,39 @@ def auth_state_path(browser: Browser, tmp_path_factory) -> str:
     page = context.new_page()
     login = LoginPage(page)
     login.navigate()
-    login.login(settings.username, settings.password)
-    page.wait_for_url(f"**/{INVENTORY}")
+    login.sign_in(settings.username, settings.password)
     context.storage_state(path=str(state_file))
     context.close()
     return str(state_file)
 
 
 @contextmanager
-def _recorded_page(browser, steps, node, videos, storage_state=None):
+def _recorded_page(browser, checks, node, videos, storage_state=None):
     context = browser.new_context(viewport=VIEWPORT, storage_state=storage_state,
                                   record_video_dir=str(videos),
                                   record_video_size=VIDEO_SIZE)
     page = context.new_page()
-    kept = ui.BrowserEvidence(context, page, steps)
+    kept = ui.BrowserEvidence(context, page, checks)
     try:
         yield page
     finally:
-        kept.stop(tokens.run_dir(), ui.failed(steps, node))
+        kept.stop(tokens.run_dir(), ui.failed(checks, node))
 
 
 @pytest.fixture
-def page(browser: Browser, steps, request, tmp_path):
+def page(browser: Browser, checks, request, tmp_path):
     """A clean page that records a video, a trace and a screen per check."""
-    with _recorded_page(browser, steps, request.node, tmp_path) as page:
+    with _recorded_page(browser, checks, request.node, tmp_path) as page:
         yield page
 
 
 @pytest.fixture
-def authenticated_page(browser: Browser, steps, request, tmp_path, auth_state_path):
+def authenticated_page(browser: Browser, checks, request, tmp_path, auth_state_path):
     """The same page, already signed in and parked on the catalogue."""
-    with _recorded_page(browser, steps, request.node, tmp_path,
+    with _recorded_page(browser, checks, request.node, tmp_path,
                         auth_state_path) as page:
         page.goto(urljoin(settings.base_url, INVENTORY))
+        ProductsPage(page).opened()
         yield page
 
 
@@ -111,6 +112,7 @@ def control_page(browser: Browser, auth_state_path) -> Page:
     context = browser.new_context(viewport=VIEWPORT, storage_state=auth_state_path)
     page = context.new_page()
     page.goto(urljoin(settings.base_url, INVENTORY))
+    ProductsPage(page).opened()
     yield page
     context.close()
 

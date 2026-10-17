@@ -1,0 +1,29 @@
+[tool.pytest.ini_options]
+# Test discovery
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+testpaths = ["tests"]
+
+# Output configuration
+addopts = "-v --tb=short"
+
+# An unregistered marker is a collection error, not a warning. On pytest 9.0.2 that
+# takes the ini option: --strict-markers in addopts only warns and the run still
+# exits 0. Pytest 9.1.1 errors on either form, and requirements.txt allows both, so
+# the ini option is the one that holds whichever version is installed.
+strict_markers = true
+
+# Two markers, both load-bearing: each selects a set no directory can express,
+# and each is the contract behind a CI job. Everything else is a path.
+markers = [
+    "api: HTTP API tests (no browser required), wherever they live",
+    "defect: documented defects, pinned against the deliberately broken builds",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

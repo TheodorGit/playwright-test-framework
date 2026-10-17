@@ -1,6 +1,6 @@
 """Fixtures for the defect suite."""
 
-from typing import Callable
+from collections.abc import Callable
 
 import pytest
 from playwright.sync_api import Page
@@ -23,8 +23,7 @@ def login_as(page: Page) -> Callable[[str], Page]:
     def _login(username: str) -> Page:
         login_page = LoginPage(page)
         login_page.navigate()
-        login_page.login(username, settings.password)
-        page.wait_for_url("**/inventory.html")
+        login_page.sign_in(username, settings.password)
         return page
 
     return _login
