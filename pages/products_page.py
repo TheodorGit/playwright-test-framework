@@ -62,3 +62,27 @@ class ProductsPage(BasePage):
     def sort_products(self, option: str) -> None:
         """Sort products by the given option (az, za, lohi, hilo)."""
         self.sort_dropdown.select_option(option)
+
+    def cart_count(self) -> int:
+        """How many items the cart badge claims, zero when it is absent."""
+        if self.cart_badge.count() == 0:
+            return 0
+        return int((self.cart_badge.text_content() or "0").strip())
+
+    def price_of(self, product_name: str) -> str:
+        """The listed price of one product."""
+        item = self.inventory_items.filter(
+            has=self.page.get_by_test_id("inventory-item-name").filter(
+                has_text=product_name
+            )
+        )
+        return item.get_by_test_id("inventory-item-price").text_content()
+
+    def cart_button_label(self, product_name: str) -> str:
+        """What the product's cart button offers right now: Add or Remove."""
+        item = self.inventory_items.filter(
+            has=self.page.get_by_test_id("inventory-item-name").filter(
+                has_text=product_name
+            )
+        )
+        return item.locator("button.btn_inventory").text_content()

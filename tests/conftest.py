@@ -1,156 +1,161 @@
 """
-Pytest configuration and fixtures.
+Fixtures for the storefront suite.
 
-Provides browser lifecycle management, one-time authentication with
-storage-state reuse, and automatic failure artifacts (screenshot +
-Playwright trace) for every UI test.
+Browser lifecycle, one login reused as storage state, and the evidence a
+test leaves behind: a video, a trace grouped by check, and a screen after
+every check that touched the page.
 """
 
 import os
+from contextlib import contextmanager
 from urllib.parse import urljoin
 
+import httpx
 import pytest
-from playwright.sync_api import sync_playwright, Browser, BrowserContext, Page
+from playwright.sync_api import Browser, Page, sync_playwright
 
 from config import settings
+from framework import tokens, ui
 from pages import LoginPage
 
-ARTIFACTS_DIR = "test_results"
+pytest_plugins = ["framework.plugin"]
+
 VIEWPORT = {"width": 1920, "height": 1080}
+VIDEO_SIZE = {"width": 1280, "height": 720}
+INVENTORY = "inventory.html"
+
+
+def _environment() -> str:
+    mode = "headless" if settings.headless else "headed"
+    return f"{settings.browser_name}, {mode}, {settings.base_url}"
+
+
+# The report names the environment this run drove; the plugin reads it.
+os.environ.setdefault("QA_ENVIRONMENT", _environment())
 
 
 @pytest.fixture(scope="session")
 def browser():
     """
-    Session-scoped browser instance.
+    One browser for the whole session.
 
-    Launches a single browser (BROWSER env var: chromium, firefox or
-    webkit) for the entire test session. Headless mode and slow-motion
-    delay come from the settings module.
+    BROWSER picks the engine, and headless mode and the slow-motion delay
+    come from the settings module.
     """
-    with sync_playwright() as p:
-        p.selectors.set_test_id_attribute("data-test")
-        browser_type = getattr(p, settings.browser_name)
-        browser = browser_type.launch(
-            headless=settings.headless,
-            slow_mo=settings.slow_mo_ms,
-        )
+    with sync_playwright() as playwright:
+        playwright.selectors.set_test_id_attribute("data-test")
+        browser_type = getattr(playwright, settings.browser_name)
+        browser = browser_type.launch(headless=settings.headless,
+                                      slow_mo=settings.slow_mo_ms)
         yield browser
         browser.close()
 
 
 @pytest.fixture(scope="session")
-def auth_state_path(browser: Browser, tmp_path_factory: pytest.TempPathFactory) -> str:
+def auth_state_path(browser: Browser, tmp_path_factory) -> str:
     """
-    Log in once per session and persist the storage state.
+    Logs in once per session and keeps the storage state.
 
-    Authenticated tests reuse this state instead of repeating the UI
-    login flow, which keeps them fast and leaves login behaviour itself
-    to the dedicated login tests.
+    Authenticated tests reuse it instead of driving the login form, which
+    leaves login behaviour to the tests that are about login.
     """
     state_file = tmp_path_factory.mktemp("auth") / "storage_state.json"
-
     context = browser.new_context(viewport=VIEWPORT)
     page = context.new_page()
-    login_page = LoginPage(page)
-    login_page.navigate()
-    login_page.login(settings.username, settings.password)
-    page.wait_for_url("**/inventory.html")
+    login = LoginPage(page)
+    login.navigate()
+    login.login(settings.username, settings.password)
+    page.wait_for_url(f"**/{INVENTORY}")
     context.storage_state(path=str(state_file))
     context.close()
-
     return str(state_file)
 
 
-def _finalize_context(context: BrowserContext, request: pytest.FixtureRequest) -> None:
-    """Save the Playwright trace if the test failed, then close the context."""
-    rep_call = getattr(request.node, "rep_call", None)
-    if rep_call is not None and rep_call.failed:
-        trace_dir = os.path.join(ARTIFACTS_DIR, "traces")
-        os.makedirs(trace_dir, exist_ok=True)
-        context.tracing.stop(path=os.path.join(trace_dir, f"{request.node.name}.zip"))
-    else:
-        context.tracing.stop()
+@contextmanager
+def _recorded_page(browser, steps, node, videos, storage_state=None):
+    context = browser.new_context(viewport=VIEWPORT, storage_state=storage_state,
+                                  record_video_dir=str(videos),
+                                  record_video_size=VIDEO_SIZE)
+    page = context.new_page()
+    kept = ui.BrowserEvidence(context, page, steps)
+    try:
+        yield page
+    finally:
+        kept.stop(tokens.run_dir(), ui.failed(steps, node))
+
+
+@pytest.fixture
+def page(browser: Browser, steps, request, tmp_path):
+    """A clean page that records a video, a trace and a screen per check."""
+    with _recorded_page(browser, steps, request.node, tmp_path) as page:
+        yield page
+
+
+@pytest.fixture
+def authenticated_page(browser: Browser, steps, request, tmp_path, auth_state_path):
+    """The same page, already signed in and parked on the catalogue."""
+    with _recorded_page(browser, steps, request.node, tmp_path,
+                        auth_state_path) as page:
+        page.goto(urljoin(settings.base_url, INVENTORY))
+        yield page
+
+
+@pytest.fixture
+def control_page(browser: Browser, auth_state_path) -> Page:
+    """
+    A page on the standard build, for a positive control in the same run.
+
+    A defect belongs to a build only if the same check passes elsewhere,
+    so the defect tests prove that here instead of claiming it.
+    """
+    context = browser.new_context(viewport=VIEWPORT, storage_state=auth_state_path)
+    page = context.new_page()
+    page.goto(urljoin(settings.base_url, INVENTORY))
+    yield page
     context.close()
 
 
-def _screenshot_on_failure(page: Page, request: pytest.FixtureRequest) -> None:
-    """Capture a full-page screenshot if the test failed, then close the page."""
-    rep_call = getattr(request.node, "rep_call", None)
-    if rep_call is not None and rep_call.failed:
-        screenshot_dir = os.path.join(ARTIFACTS_DIR, "screenshots")
-        os.makedirs(screenshot_dir, exist_ok=True)
-        page.screenshot(
-            path=os.path.join(screenshot_dir, f"{request.node.name}.png"),
-            full_page=True,
-        )
-    page.close()
+@pytest.fixture(scope="session")
+def test_credentials() -> dict:
+    """The account the regression suite signs in with."""
+    return {"username": settings.username, "password": settings.password}
 
 
-@pytest.fixture
-def context(browser: Browser, request: pytest.FixtureRequest):
-    """
-    Function-scoped, isolated browser context with tracing enabled.
-
-    Each test gets clean cookies and storage. On failure the trace
-    (screenshots + DOM snapshots) is saved to test_results/traces/.
-    """
-    context = browser.new_context(viewport=VIEWPORT)
-    context.tracing.start(screenshots=True, snapshots=True)
-    yield context
-    _finalize_context(context, request)
-
-
-@pytest.fixture
-def page(context: BrowserContext, request: pytest.FixtureRequest):
-    """Function-scoped page that screenshots itself on test failure."""
-    page = context.new_page()
-    yield page
-    _screenshot_on_failure(page, request)
-
-
-@pytest.fixture
-def authenticated_context(
-    browser: Browser,
-    auth_state_path: str,
-    request: pytest.FixtureRequest,
-):
-    """Isolated context pre-loaded with the session's authentication state."""
-    context = browser.new_context(viewport=VIEWPORT, storage_state=auth_state_path)
-    context.tracing.start(screenshots=True, snapshots=True)
-    yield context
-    _finalize_context(context, request)
-
-
-@pytest.fixture
-def authenticated_page(
-    authenticated_context: BrowserContext,
-    request: pytest.FixtureRequest,
-):
-    """
-    Page already logged in and parked on the products page.
-
-    Reuses the session's stored auth state rather than driving the login
-    form, so authenticated tests skip the login UI entirely.
-    """
-    page = authenticated_context.new_page()
-    page.goto(urljoin(settings.base_url, "inventory.html"))
-    yield page
-    _screenshot_on_failure(page, request)
+# The API layer and the verification stage share one client, so both can
+# check the same booking from two directions.
+SANDBOX_ADMIN = {"username": "admin", "password": "password123"}
 
 
 @pytest.fixture(scope="session")
-def test_credentials():
-    """Provide test credentials from the settings module."""
+def api_client():
+    """Session-scoped HTTP client bound to the API under test."""
+    with httpx.Client(base_url=settings.api_base_url, timeout=30.0,
+                      headers={"Accept": "application/json"}) as client:
+        yield client
+
+
+@pytest.fixture(scope="session")
+def auth_token(api_client) -> str:
+    """
+    Authenticates once per session and returns the token.
+
+    These are the sandbox's own published credentials, not secrets.
+    """
+    response = api_client.post("/auth", json=SANDBOX_ADMIN)
+    assert response.status_code == 200, f"auth failed: {response.text}"
+    token = response.json().get("token")
+    assert token, f"no token in the auth response: {response.text}"
+    return token
+
+
+@pytest.fixture
+def booking_payload() -> dict:
+    """A valid booking, as the documented contract describes one."""
     return {
-        "username": settings.username,
-        "password": settings.password,
+        "firstname": "Ada",
+        "lastname": "Lovelace",
+        "totalprice": 250,
+        "depositpaid": True,
+        "bookingdates": {"checkin": "2026-08-01", "checkout": "2026-08-05"},
+        "additionalneeds": "Late checkout",
     }
-
-
-@pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item, call):
-    """Store test result on the request node for fixture access."""
-    outcome = yield
-    rep = outcome.get_result()
-    setattr(item, f"rep_{rep.when}", rep)

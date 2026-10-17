@@ -19,6 +19,7 @@ class CheckoutPage(BasePage):
         self.error_message = page.get_by_test_id("error")
 
         # Step Two - Overview
+        self.overview_items = page.get_by_test_id("inventory-item")
         self.subtotal = page.get_by_test_id("subtotal-label")
         self.tax = page.get_by_test_id("tax-label")
         self.total = page.get_by_test_id("total-label")
@@ -51,3 +52,14 @@ class CheckoutPage(BasePage):
     def cancel(self) -> None:
         """Cancel the checkout process."""
         self.cancel_button.click()
+
+    def get_overview_items(self) -> list[dict]:
+        """The lines the order overview lists, as the customer sees them."""
+        items = []
+        for item in self.overview_items.all():
+            items.append({
+                "name": item.get_by_test_id("inventory-item-name").text_content(),
+                "price": item.get_by_test_id("inventory-item-price").text_content(),
+                "quantity": item.get_by_test_id("item-quantity").text_content(),
+            })
+        return items
