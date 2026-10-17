@@ -1,4 +1,4 @@
-"""Fixtures for the defect-detection suite."""
+"""Fixtures for the defect suite."""
 
 from typing import Callable
 
@@ -12,11 +12,12 @@ from pages import LoginPage
 @pytest.fixture
 def login_as(page: Page) -> Callable[[str], Page]:
     """
-    Log in as any named SauceDemo account.
+    Signs in as any named SauceDemo account, on the recorded page.
 
-    The defect suite targets the deliberately broken builds served to
-    problem_user and error_user, so it cannot reuse the standard-user
-    auth state.
+    The defect suite drives the deliberately broken builds served to
+    problem_user and error_user, so it cannot reuse the standard-user auth
+    state. The standard build is reached in the same test through the
+    control_page fixture, which is what each defect is measured against.
     """
 
     def _login(username: str) -> Page:
