@@ -1,137 +1,65 @@
-# Defect Log
+# Defect log
 
-SauceDemo deliberately serves broken builds of the store to the `problem_user`
-and `error_user` accounts. This log documents the defects my regression suite
-catches in those builds, written up the way I'd hand them to a development team.
+SauceDemo serves deliberately broken builds of the store to the `problem_user`
+and `error_user` accounts. This log is the index of the defects my suite finds
+in those builds, each written up the way I hand defects to a development team:
+the environment, the exact steps, what happened against what should have
+happened, the evidence, and whether it reproduces anywhere else.
 
-Each bug is pinned by a test in [`tests/defects/test_known_defects.py`](tests/defects/test_known_defects.py),
-marked `xfail(strict=True)`: the suite proves the bug exists on every CI run,
-stays green while doing so, and fails loudly the day the bug is fixed so the
-test can be promoted into the main regression suite.
+Full reports live in [`docs/defects/`](docs/defects), one file per defect.
 
-Reproduce everything below with: `pytest -m defect`
+| ID | Defect | Build | Severity | Pinned by |
+|---|---|---|---|---|
+| [DEF-01](docs/defects/DEF-01-product-images-identical.md) | Every product shows the same broken image | `problem_user` | Major | `test_each_product_shows_its_own_image` |
+| [DEF-02](docs/defects/DEF-02-price-sort-ignored.md) | Sorting by price silently does nothing | `problem_user` | Major | `test_price_sort_reorders_the_grid` |
+| [DEF-03](docs/defects/DEF-03-last-name-writes-first-name.md) | The Last Name input writes into the First Name field | `problem_user` | Critical | `test_checkout_keeps_first_and_last_name_apart` |
+| [DEF-04](docs/defects/DEF-04-add-to-cart-unresponsive.md) | Add to cart is unresponsive for some products | `problem_user` | Critical | `test_every_product_can_be_added_to_the_cart` |
+| [DEF-05](docs/defects/DEF-05-grid-remove-unresponsive.md) | Remove on the product grid leaves the cart unchanged | `problem_user` | Major | `test_remove_on_the_grid_updates_the_cart` |
+| [DEF-06](docs/defects/DEF-06-sort-error-dialog.md) | Sorting raises an error dialog and does not sort | `error_user` | Major | `test_sorting_completes_without_an_error_dialog` |
+| [DEF-07](docs/defects/DEF-07-finish-does-not-complete-order.md) | Finish does nothing, so no order can be placed | `error_user` | Blocker | `test_an_order_can_be_completed` |
+| [DEF-08](docs/defects/DEF-08-last-name-accepts-no-input.md) | The Last Name field accepts no input | `error_user` | Critical | `test_the_last_name_field_accepts_input` |
+| [DEF-09](docs/defects/DEF-09-empty-last-name-accepted.md) | Checkout continues with an empty Last Name | `error_user` | Major | `test_checkout_refuses_an_empty_last_name` |
 
----
+Reproduce all nine with `pytest -m defect`.
 
-## BUG-01: Every product shows the same broken image
+## How each report is written
 
-| | |
+Every report carries the same fields, so a developer gets the environment, the
+steps, the evidence and the cross-build check in one place:
+
+| Field | What it answers |
 |---|---|
-| **Severity** | Major. Customers cannot see what they are buying |
-| **Build** | `problem_user` |
-| **Area** | Product listing |
-| **Caught by** | `test_every_product_shows_its_own_image` |
+| Title | The site and build, then the issue in one line |
+| Source URL | The exact page the defect appears on |
+| Version in which the defect was initially detected | The build it was first seen on, and the run that recorded it |
+| Source / Owner | QA, or the customer report it came from |
+| Browsers / Devices | Where it was verified |
+| User role | The account and role used to reproduce |
+| Affected versions, severity, status | Scope in time, how much it hurts, where it stands |
+| Full defect description | The issue in a couple of plain sentences |
+| Preconditions | The data and settings that must exist before step 1 |
+| Steps to reproduce and related screenshots | Numbered steps, with the evidence |
+| Actual results | What happens, with the observed values |
+| Expected results | What should happen, and on what grounds |
+| Movie / console logs / network requests | Recordings, dialogs, logs, traces |
+| Defect verification on other builds and estimations | Where it does and does not reproduce |
+| Scope and impact | Which customers, orders and data are affected |
+| Advanced info | The check that pins it, and what narrows it down |
+| Notes | Related defects, open questions, follow-ups |
 
-**Steps to reproduce**
-1. Log in as `problem_user`
-2. Observe the product grid on the inventory page
+## How the defects are pinned
 
-**Expected:** each of the 6 products displays its own photo.
-**Actual:** all 6 products render the identical broken-image placeholder (`sl-404` asset).
+Each check is written as the **correct** behaviour and run against the broken
+build. A defect that still reproduces is reported as a **known issue**: amber
+in the report, with its evidence and a link to its report, and the run stays
+green. A check that starts passing fails its test instead, which is the signal
+that the defect is fixed and the check belongs in the regression suite.
 
-![All products showing the same broken image](docs/bugs/bug-01-broken-images.png)
+Every run leaves the evidence behind: a screenshot taken at the failing check,
+a video of the browser, a Playwright trace, and for DEF-06 the text of the
+dialog the store raised, which no screenshot can show.
 
----
-
-## BUG-02: Sorting by price silently does nothing
-
-| | |
-|---|---|
-| **Severity** | Major. A core browsing feature fails with no error shown |
-| **Build** | `problem_user` |
-| **Area** | Product listing / sorting |
-| **Caught by** | `test_price_sort_orders_products_low_to_high` |
-
-**Steps to reproduce**
-1. Log in as `problem_user`
-2. Select "Price (low to high)" in the sort dropdown
-
-**Expected:** products reorder from cheapest to most expensive.
-**Actual:** the grid does not change; prices remain in default order
-(`$29.99, $9.99, $15.99, $49.99, $7.99, $15.99`). The user gets no feedback
-that sorting failed.
-
----
-
-## BUG-03: Last Name input writes into the First Name field
-
-| | |
-|---|---|
-| **Severity** | Critical. Blocks the purchase funnel |
-| **Build** | `problem_user` |
-| **Area** | Checkout, step one |
-| **Caught by** | `test_checkout_form_keeps_first_and_last_name_distinct` |
-
-**Steps to reproduce**
-1. Log in as `problem_user`, add any item, proceed to checkout
-2. Type "John" in First Name
-3. Type "Doe" in Last Name
-
-**Expected:** First Name holds "John", Last Name holds "Doe".
-**Actual:** every keystroke in Last Name lands in the First Name field.
-First Name ends up as "Doe" and Last Name stays empty. The form cannot be
-filled correctly, so this build cannot take an order with accurate
-customer data.
-
-![First Name contains "Doe", Last Name is empty](docs/bugs/bug-03-lastname-mirror.png)
-
----
-
-## BUG-04: "Add to cart" unresponsive for some products
-
-| | |
-|---|---|
-| **Severity** | Critical. Directly lost revenue on affected products |
-| **Build** | `problem_user` |
-| **Area** | Product listing / cart |
-| **Caught by** | `test_every_product_can_be_added_to_cart` |
-
-**Steps to reproduce**
-1. Log in as `problem_user`
-2. Click "Add to cart" on *Sauce Labs Bolt T-Shirt* (also reproducible with *Sauce Labs Fleece Jacket*)
-
-**Expected:** cart badge increments; button switches to "Remove".
-**Actual:** nothing happens. No badge, no state change, no error.
-**Related observation:** for products that *can* be added, the "Remove"
-button on the grid is equally unresponsive (cart badge never decrements).
-
----
-
-## BUG-05: Sorting raises an error for error_user
-
-| | |
-|---|---|
-| **Severity** | Major. Feature broken, and the failure is user-visible |
-| **Build** | `error_user` |
-| **Area** | Product listing / sorting |
-| **Caught by** | `test_price_sort_completes_without_error` |
-
-**Steps to reproduce**
-1. Log in as `error_user`
-2. Select "Price (low to high)" in the sort dropdown
-
-**Expected:** products reorder from cheapest to most expensive.
-**Actual:** a browser dialog appears reading *"Sorting is broken! This error
-has been reported to Backtrace."* and the grid stays unsorted.
-
----
-
-## BUG-06: Orders cannot be completed, Finish button does nothing
-
-| | |
-|---|---|
-| **Severity** | Blocker. No order can ever be placed on this build |
-| **Build** | `error_user` |
-| **Area** | Checkout, final step |
-| **Caught by** | `test_order_can_be_completed` |
-
-**Steps to reproduce**
-1. Log in as `error_user`, add any item, complete checkout step one
-2. On the order overview page, click **Finish**
-
-**Expected:** order confirmation page ("Thank you for your order!").
-**Actual:** the click is swallowed. The page stays on the order overview
-with no confirmation and no error. The customer cannot finish paying.
-**Related observation:** on this build the Last Name field also cannot be
-typed into at all, yet checkout validation lets the empty value through,
-which is a second, masked validation defect.
+Each defect also gets a **positive control** in the same run: the same check on
+the standard build. That is what pins a defect to a build rather than to the
+storefront, and it is the evidence behind the "verification on other builds"
+field in every report.
