@@ -30,7 +30,7 @@ at different prices.
 2. Choose **Price (low to high)** in the sort dropdown.
 3. Read the prices from left to right.
 
-![The grid after choosing Price (low to high), still in its original order](evidence/DEF-02-price-sort-ignored.png)
+![After Price (low to high) was chosen: the sort control back on Name (A to Z) and the grid in the order it already had, a page indistinguishable from the one before the choice](evidence/DEF-02-price-sort-ignored.png)
 
 ## Actual results
 
@@ -49,7 +49,10 @@ same for the other three sort options.
 No console message, no page error and no dialog accompany the choice. The one
 request it triggers is a re-fetch of the placeholder image this build serves for
 every product, which shows the page did re-render and simply did not sort. The
-check records the order it read, which is the sequence above.
+check records the order it read and the option the control came back to, kept as
+[`evidence/DEF-02-sort-reading.txt`](evidence/DEF-02-sort-reading.txt): a
+selection that reverts cannot appear in a screenshot, so the run records what it
+read instead.
 
 ## Defect verification on other builds and estimations
 

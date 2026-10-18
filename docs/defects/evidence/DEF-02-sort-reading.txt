@@ -1,0 +1,2 @@
+Price (low to high) chosen: the sort control went back to Name (A to Z) instead of keeping lohi.
+The grid reads $29.99, $9.99, $15.99, $49.99, $7.99, $15.99, which in order is $7.99, $9.99, $15.99, $15.99, $29.99, $49.99.

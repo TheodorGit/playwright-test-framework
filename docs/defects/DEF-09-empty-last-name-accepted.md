@@ -30,7 +30,7 @@ on checkout step one.
 3. Fill **First Name** and **Postal Code**, and leave **Last Name** empty.
 4. Click **Continue**.
 
-![The order overview reached with no last name on the order](evidence/DEF-09-empty-last-name-accepted.png)
+![Checkout step two reached after Continue, with Last Name left empty on step one](evidence/DEF-09-empty-last-name-accepted.png)
 
 ## Actual results
 
@@ -45,7 +45,9 @@ build does, and the customer stays on step one.
 ## Movie / console logs / network requests
 
 The run records the page reached after Continue and the error element it looked
-for, and keeps a video and a trace of the attempt.
+for, and keeps a video and a trace of the attempt. The overview never shows the
+customer's name, so the screenshot evidences the page that was reached; the empty
+field is what the steps above set and what the check recorded.
 
 ## Defect verification on other builds and estimations
 
