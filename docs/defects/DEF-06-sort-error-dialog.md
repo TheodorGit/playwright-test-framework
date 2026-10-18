@@ -9,7 +9,7 @@
 | **Browsers / Devices** | Chromium 143 and Firefox 144, desktop at 1920x1080. |
 | **User role** | Customer, signed in as `error_user`. |
 | **Affected versions** | Every build served to `error_user` since this suite began checking. Not reproducible on the standard build of the same deploy. |
-| **Severity** | Major. The feature is broken and the failure is thrown at the customer. |
+| **Severity** | Minor. Sorting is a convenience on a catalogue of six, the failure announces itself, and every product can still be found and bought. |
 | **Status** | Open. Pinned by an automated check on every run. |
 
 ## Full defect description
@@ -62,6 +62,15 @@ served to `error_user`.
 Every customer served this build, on all four sort options. The customer is
 shown an internal error message and still cannot sort, and the dialog blocks
 the page until it is dismissed.
+
+It is filed Minor rather than Major because nothing the customer is shown is
+wrong: the sort plainly did not happen, the six products are all on one page,
+and the order can still be completed. The cost is an internal message a
+customer should never read, and a catalogue that cannot be compared by price.
+On a catalogue large enough to need sorting, the same defect would be Major.
+[DEF-02](DEF-02-price-sort-ignored.md) is the same feature failing silently on
+another build and stays Major for that reason: it leaves the customer reading
+an order it never applied, with nothing to say so.
 
 ## Advanced info
 

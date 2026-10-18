@@ -15,7 +15,7 @@ Full reports live in [`docs/defects/`](docs/defects), one file per defect.
 | [DEF-03](docs/defects/DEF-03-last-name-writes-first-name.md) | The Last Name input writes into the First Name field | `problem_user` | Critical | `test_checkout_keeps_first_and_last_name_apart` |
 | [DEF-04](docs/defects/DEF-04-add-to-cart-unresponsive.md) | Add to cart is unresponsive for some products | `problem_user` | Critical | `test_every_product_can_be_added_to_the_cart` |
 | [DEF-05](docs/defects/DEF-05-grid-remove-unresponsive.md) | Remove on the product grid leaves the cart unchanged | `problem_user` | Major | `test_remove_on_the_grid_updates_the_cart` |
-| [DEF-06](docs/defects/DEF-06-sort-error-dialog.md) | Sorting raises an error dialog and does not sort | `error_user` | Major | `test_sorting_completes_without_an_error_dialog` |
+| [DEF-06](docs/defects/DEF-06-sort-error-dialog.md) | Sorting raises an error dialog and does not sort | `error_user` | Minor | `test_sorting_completes_without_an_error_dialog` |
 | [DEF-07](docs/defects/DEF-07-finish-does-not-complete-order.md) | Finish does nothing, so no order can be placed | `error_user` | Blocker | `test_an_order_can_be_completed` |
 | [DEF-08](docs/defects/DEF-08-last-name-accepts-no-input.md) | The Last Name field accepts no input | `error_user` | Critical | `test_the_last_name_field_accepts_input` |
 | [DEF-09](docs/defects/DEF-09-empty-last-name-accepted.md) | Checkout continues with an empty Last Name | `error_user` | Major | `test_checkout_refuses_an_empty_last_name` |

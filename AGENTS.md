@@ -42,7 +42,8 @@ short; fix a wrong line here rather than noting it elsewhere.
 
 ## Defect reports
 - One file per defect under `docs/defects/`, in the field template `BUGS.md` describes,
-  with `BUGS.md` as the index. Ids are `DEF-NN`; severity is Blocker, Critical or Major.
+  with `BUGS.md` as the index. Ids are `DEF-NN`; severity is Blocker, Critical,
+  Major or Minor, and the entry says what the rating rests on, not just the word.
 - A defect is pinned with `checks.known_defect(...)` naming its id. Still reproducing is
   a known issue and keeps the run green; fixed fails the test, which is the signal to
   promote the check into the regression suite.
