@@ -54,12 +54,6 @@ def _sorted_by_price(products: ProductsPage) -> str:
     return _in_price_order(products)
 
 
-def _sort_ignored(products: ProductsPage) -> str:
-    """The broken path: nothing waits, so the grid order is what speaks."""
-    products.select_sort("lohi")
-    return _in_price_order(products)
-
-
 def _in_price_order(products: ProductsPage) -> str:
     prices = [shop.amount(text) for text in products.get_product_prices()]
     # Printed as plain text: a report is read by people, not by Python.
@@ -132,8 +126,20 @@ def test_price_sort_reorders_the_grid(login_as, control_page, checks):
     page = login_as(PROBLEM_USER)
     broken = ProductsPage(page).opened()
 
+    def sorts_the_grid():
+        broken.select_sort("lohi")
+        read = ", ".join(shop.money(shop.amount(text))
+                         for text in broken.get_product_prices())
+        # Attached before the check fails: a selection that reverts is the one
+        # thing a screenshot of this page cannot show.
+        checks.attach("the sort reading",
+                      f"Price (low to high) chosen: the control shows "
+                      f"{broken.sort_option_shown()}.\n"
+                      f"The grid reads {read}.\n")
+        return _in_price_order(broken)
+
     checks.known_defect("sorting by price reorders the grid",
-                        lambda: _sort_ignored(broken), "DEF-02",
+                        sorts_the_grid, "DEF-02",
                         expected="prices ascending after Price low to high is chosen")
     checks.check("the same sort works on the standard build",
                  lambda: _sorted_by_price(ProductsPage(control_page)),
